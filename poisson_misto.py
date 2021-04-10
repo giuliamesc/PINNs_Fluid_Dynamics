@@ -76,7 +76,7 @@ def BC_N():
 # %% Losses definition
 losses = [ns.LossMeanSquares( 'PDE', PDE, weight = 2.0),
           ns.LossMeanSquares('BC_D', lambda: model(x_BC_D)),
-          ns.LossMeanSquares('BC_N', BC_N)]
+          ns.LossMeanSquares('BC_N', BC_N, weight = 5.0)]
 
 loss_test = ns.LossMeanSquares('fit', lambda: model(x_test) - u_test)
 
@@ -100,7 +100,18 @@ ax.legend()
 plt.show(block = True)
 
 # %% 
-u = model(x_BC_N)
-li = ["[x: {}, y: {}] -> u: {}".format(x[0],x[1],u) for x,u in zip(x_BC_N,u)]
+def compute_gradient(x_set):
+    with ns.GradientTape(persistent = True) as tape:
+        tape.watch(x_set)
+        u = model(x_set)
+        grad_u = nse.physics.tens_style.gradient_scalar(tape, u, x_set)
+    return grad_u
+
+x_set = x_BC_N
+u = model(x_set)[:,0]
+grad_u = compute_gradient(x_set)
+u_x = grad_u[:,0]
+print(u.shape)
+li = ["[x: {}, y: {}] -> u: {}, u_x: {}".format(x[0],x[1],u,u_x) for x,u,u_x in zip(x_BC_N,u,u_x-g)]
 for el in li:
     print(el)
