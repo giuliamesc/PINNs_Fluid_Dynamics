@@ -65,18 +65,23 @@ def PDE():
         laplacian = nse.physics.tens_style.laplacian_scalar(tape, u, x_PDE, dim)
     return - laplacian - f
 
+def BC_D():
+    with ns.GradientTape(persistent = True) as tape:
+        tape.watch(x_BC_D)
+        u = model(x_BC_D)
+    return u
+
 def BC_N():
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x_BC_N)
         u = model(x_BC_N)
-        grad_u = nse.physics.tens_style.gradient_scalar(tape, u, x_BC_N)
-        dux = grad_u @ tf.constant([[1],[0]], dtype = tf.float64)
-    return dux - g
+        u_x = nse.physics.tens_style.gradient_scalar(tape, u, x_BC_N)[:,0]
+    return u_x - g
 
 # %% Losses definition
 losses = [ns.LossMeanSquares( 'PDE', PDE, weight = 2.0),
-          ns.LossMeanSquares('BC_D', lambda: model(x_BC_D)),
-          ns.LossMeanSquares('BC_N', BC_N, weight = 5.0)]
+          ns.LossMeanSquares('BC_D', BC_D),
+          ns.LossMeanSquares('BC_N', BC_N)]
 
 loss_test = ns.LossMeanSquares('fit', lambda: model(x_test) - u_test)
 
@@ -98,20 +103,3 @@ ax.scatter(x_test[:,0], x_test[:,1], model(x_test).numpy(), label = 'numerical s
 ax.legend()
 
 plt.show(block = True)
-
-# %% 
-def compute_gradient(x_set):
-    with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x_set)
-        u = model(x_set)
-        grad_u = nse.physics.tens_style.gradient_scalar(tape, u, x_set)
-    return grad_u
-
-x_set = x_BC_N
-u = model(x_set)[:,0]
-grad_u = compute_gradient(x_set)
-u_x = grad_u[:,0]
-print(u.shape)
-li = ["[x: {}, y: {}] -> u: {}, u_x: {}".format(x[0],x[1],u,u_x) for x,u,u_x in zip(x_BC_N,u,u_x-g)]
-for el in li:
-    print(el)
