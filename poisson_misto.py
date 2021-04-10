@@ -26,6 +26,7 @@ domain_W2  = 2*np.pi
 dim = 2
 u_exact = lambda x: np.sin(x[:,0]) * np.sin(x[:,1])
 forcing = lambda x: 2 * np.sin(x[:,0]) * np.sin(x[:,1])
+g_neum  = lambda x: np.sin(x_BC_N[:,1])
 
 # Numerical options
 num_PDE  = 200
@@ -56,7 +57,7 @@ x_BC_N  = tf.concat([x_BC_x0, x_BC_x1], axis = 0)
 
 u_test = u_exact(x_test)[:, None]
 f = forcing(x_PDE)
-g = np.sin(x_BC_N[:,1])
+g = g_neum(x_BC_N)
 
 def PDE():
     with ns.GradientTape(persistent = True) as tape:
