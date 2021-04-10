@@ -26,6 +26,7 @@ domain_W2  = 2*np.pi
 dim = 2
 u_exact = lambda x: np.sin(x[:,0]) * np.sin(x[:,1])
 forcing = lambda x: 2 * np.sin(x[:,0]) * np.sin(x[:,1])
+g_neum  = lambda x: np.sin(x_BC_N[:,1])
 
 # Numerical options
 num_PDE  = 200
@@ -56,7 +57,7 @@ x_BC_N  = tf.concat([x_BC_x0, x_BC_x1], axis = 0)
 
 u_test = u_exact(x_test)[:, None]
 f = forcing(x_PDE)
-g = np.sin(x_BC_N[:,1])
+g = g_neum(x_BC_N)
 
 def PDE():
     with ns.GradientTape(persistent = True) as tape:
@@ -65,17 +66,22 @@ def PDE():
         laplacian = nse.physics.tens_style.laplacian_scalar(tape, u, x_PDE, dim)
     return - laplacian - f
 
+def BC_D():
+    with ns.GradientTape(persistent = True) as tape:
+        tape.watch(x_BC_D)
+        u = model(x_BC_D)
+    return u
+
 def BC_N():
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x_BC_N)
         u = model(x_BC_N)
-        grad_u = nse.physics.tens_style.gradient_scalar(tape, u, x_BC_N)
-        dux = grad_u @ tf.constant([[1],[0]], dtype = tf.float64)
-    return dux - g
+        u_x = nse.physics.tens_style.gradient_scalar(tape, u, x_BC_N)[:,0]
+    return u_x - g
 
 # %% Losses definition
 losses = [ns.LossMeanSquares( 'PDE', PDE, weight = 2.0),
-          ns.LossMeanSquares('BC_D', lambda: model(x_BC_D)),
+          ns.LossMeanSquares('BC_D', BC_D),
           ns.LossMeanSquares('BC_N', BC_N)]
 
 loss_test = ns.LossMeanSquares('fit', lambda: model(x_test) - u_test)
@@ -98,9 +104,3 @@ ax.scatter(x_test[:,0], x_test[:,1], model(x_test).numpy(), label = 'numerical s
 ax.legend()
 
 plt.show(block = True)
-
-# %% 
-u = model(x_BC_N)
-li = ["[x: {}, y: {}] -> u: {}".format(x[0],x[1],u) for x,u in zip(x_BC_N,u)]
-for el in li:
-    print(el)
