@@ -6,7 +6,7 @@ import os
 cwd = os.path.abspath(os.getcwd())
 sys.path.append(os.path.join(cwd,"nisaba"))
 import nisaba as ns
-import nisaba.experimental as nse
+from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
 
@@ -59,7 +59,7 @@ def PDE():
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x_PDE)
         u = model(x_PDE)
-        laplacian = nse.physics.tens_style.laplacian_scalar(tape, u, x_PDE, dim)
+        laplacian = operator.laplacian_scalar(tape, u, x_PDE, dim)
     return - laplacian - f
 
 # %% Losses definition

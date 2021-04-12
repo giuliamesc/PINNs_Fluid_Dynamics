@@ -6,7 +6,7 @@ import os
 cwd = os.path.abspath(os.getcwd())
 sys.path.append(os.path.join(cwd,"nisaba"))
 import nisaba as ns
-import nisaba.experimental as nse
+from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
 
@@ -87,10 +87,10 @@ def PDE_U():
         u_vect = model(x_PDE)
         u = u_vect[:,0]
         v = u_vect[:,1]
-        grad_u = nse.physics.tens_style.gradient_scalar(tape, u, x_PDE)
+        grad_u = operator.gradient_scalar(tape, u, x_PDE)
         dux = grad_u[:,0]
         duy = grad_u[:,1]
-        lapl_u = nse.physics.tens_style.laplacian_scalar(tape, u, x_PDE, dim)
+        lapl_u = operator.laplacian_scalar(tape, u, x_PDE, dim)
     return rho * (u * dux + v * duy) - mu * (lapl_u) - f_1
 
 
@@ -100,10 +100,10 @@ def PDE_V():
         u_vect = model(x_PDE)
         u = u_vect[:,0]
         v = u_vect[:,1]
-        grad_v = nse.physics.tens_style.gradient_scalar(tape, v, x_PDE)
+        grad_v = operator.gradient_scalar(tape, v, x_PDE)
         dvx = grad_v[:,0]
         dvy = grad_v[:,1]
-        lapl_v = nse.physics.tens_style.laplacian_scalar(tape, v, x_PDE, dim)
+        lapl_v = operator.laplacian_scalar(tape, v, x_PDE, dim)
     return rho * (u * dvx + v * dvy) - mu * (lapl_v) - f_2
 
 def BC_D():
@@ -116,7 +116,7 @@ def BC_N():
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x_BC_N)
         u_vect = model(x_BC_N)
-        grad_u_vect = nse.physics.tens_style.gradient_vector(tape, u_vect, x_BC_N, dim)
+        grad_u_vect = operator.gradient_vector(tape, u_vect, x_BC_N, dim)
         u_x = grad_u_vect[:,0,0]
         v_x = grad_u_vect[:,1,0]
     return u_x + v_x

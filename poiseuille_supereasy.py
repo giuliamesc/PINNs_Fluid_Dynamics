@@ -6,7 +6,7 @@ import os
 cwd = os.path.abspath(os.getcwd())
 sys.path.append(os.path.join(cwd,"nisaba"))
 import nisaba as ns
-import nisaba.experimental as nse
+from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
 
@@ -73,38 +73,30 @@ f_1 = forcing_x(x_PDE)
 
 # %% Losses creation
 
-# def PDE_U():
-#     return model(x_PDE)
-
 def PDE_U():
     with ns.GradientTape(persistent=True) as tape:
         tape.watch(x_PDE)
         u = model(x_PDE)
-        lapl_u = nse.physics.tens_style.laplacian_scalar(tape, u, x_PDE, dim)
-    return - mu * (lapl_u) - f_1
-
-def BC_D():
-    with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x_BC_D)
-        u = model(x_BC_D)
-    return u
+        u_y = operator.gradient_scalar(tape, u, x_PDE)[:,1]
+        u_yy = operator.gradient_scalar(tape, u, x_PDE)[:,1]
+    return - mu * (u_yy) - f_1
 
 def BC_N():
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x_BC_N)
         u = model(x_BC_N)
-        grad_u = nse.physics.tens_style.gradient_scalar(tape, u, x_BC_N)
+        grad_u = operator.gradient_scalar(tape, u, x_BC_N)
         u_x = grad_u[:,0]
     return u_x 
 
 def test_loss():
-    u_vect = model(x_test)
-    u = u_vect[:,0]
+    u = model(x_test)
     return (u - u_test) * (u - u_test)
+
 
 # %% Losses definition
 losses = [ns.LossMeanSquares('PDE_U', PDE_U, weight = 2.0),
-          ns.LossMeanSquares( 'BC_D',  BC_D),
+          ns.LossMeanSquares( 'BC_D', lambda: model(x_BC_D)),
           ns.LossMeanSquares( 'BC_N',  BC_N)]
 
 loss_test = ns.LossMeanSquares('fit', test_loss)
