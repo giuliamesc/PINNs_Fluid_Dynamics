@@ -6,7 +6,7 @@ import os
 cwd = os.path.abspath(os.getcwd())
 sys.path.append(os.path.join(cwd,"nisaba"))
 import nisaba as ns
-import nisaba.experimental as nse
+from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
 
@@ -77,15 +77,15 @@ def PDE_U():
     with ns.GradientTape(persistent=True) as tape:
         tape.watch(x_PDE)
         u = model(x_PDE)
-        u_y = nse.physics.tens_style.gradient_scalar(tape, u, x_PDE)[:,1]
-        u_yy = nse.physics.tens_style.gradient_scalar(tape, u, x_PDE)[:,1]
+        u_y = operator.gradient_scalar(tape, u, x_PDE)[:,1]
+        u_yy = operator.gradient_scalar(tape, u, x_PDE)[:,1]
     return - mu * (u_yy) - f_1
 
 def BC_N():
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x_BC_N)
         u = model(x_BC_N)
-        grad_u = nse.physics.tens_style.gradient_scalar(tape, u, x_BC_N)
+        grad_u = operator.gradient_scalar(tape, u, x_BC_N)
         u_x = grad_u[:,0]
     return u_x 
 
