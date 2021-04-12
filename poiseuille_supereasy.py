@@ -54,7 +54,7 @@ model = tf.keras.Sequential([
     tf.keras.layers.Dense(20, input_shape=(2,), activation=tf.nn.tanh),
     tf.keras.layers.Dense(20, activation=tf.nn.tanh),
     tf.keras.layers.Dense(20, activation=tf.nn.tanh),
-    tf.keras.layers.Dense(2)
+    tf.keras.layers.Dense(1)
 ])
 
 x_PDE   = tf.random.uniform(shape = [num_PDE, 2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
