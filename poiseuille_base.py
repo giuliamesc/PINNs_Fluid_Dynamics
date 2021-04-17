@@ -30,6 +30,7 @@ P_end = 0
 rho = 3100
 mu  = 890
 
+
 # Numerical options
 num_PDE  = 1000
 num_BC   = 80 # points for each edge
@@ -62,10 +63,13 @@ x_BC_x1 = tf.random.uniform(shape = [num_BC,  2], minval = [L, 0],  maxval = [L,
 x_BC_y0 = tf.random.uniform(shape = [num_BC,  2], minval = [0, 0],  maxval = [L, 0], dtype = ns.config.get_dtype())
 x_BC_y1 = tf.random.uniform(shape = [num_BC,  2], minval = [0, H],  maxval = [L, H], dtype = ns.config.get_dtype())
 x_test  = tf.random.uniform(shape = [num_test,2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
+x_BC_D  = tf.concat([x_BC_x0, x_BC_y0, x_BC_y1], axis = 0) 
 
 u_test = u_exact(x_test)
 f_1 = forcing_x(x_PDE)
 inlet = u_exact(x_BC_x0)[:, None]
+zeros = tf.zeros(shape = [num_BC,  1], dtype = ns.config.get_dtype())
+bcd_cond = tf.concat([inlet, zeros, zeros], axis = 0)
 
 # %% Losses creation
 
@@ -73,21 +77,16 @@ def PDE_U():
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x_PDE)
         u = model(x_PDE)
-        lapl_u = operator.laplacian_scalar(tape, u, x_PDE, dim)
-        #u_y = operator.gradient_scalar(tape, u, x_PDE)[:,1]
-        #u_yy = operator.gradient_scalar(tape, u, x_PDE)[:,1]
-    return - mu * (lapl_u) - f_1
+        #lapl_u = operator.laplacian_scalar(tape, u, x_PDE, dim)
+        u_y = operator.gradient_scalar(tape, u, x_PDE)[:,1]
+        u_yy = operator.gradient_scalar(tape, u_y, x_PDE)[:,1]
+    return - mu * u_yy - f_1
 
 def BC_D():
     with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x_BC_x0)
-        tape.watch(x_BC_y0)
-        tape.watch(x_BC_y1)
-        u_vect_0 = model(x_BC_x0)
-        u_vect_1 = model(x_BC_y0)
-        u_vect_2 = model(x_BC_y1)
-        u_loss = tf.math.abs(u_vect_0-inlet) + tf.math.abs(u_vect_1) + tf.math.abs(u_vect_2)
-    return u_loss
+        tape.watch(x_BC_D)
+        u_vect = model(x_BC_D)
+    return tf.math.abs(u_vect - bcd_cond)
 
 def BC_N():
     with ns.GradientTape(persistent = True) as tape:
@@ -103,7 +102,7 @@ def test_loss():
 
 # %% Losses definition
 losses = [ns.LossMeanSquares('PDE_U', PDE_U, weight = 2.0),
-          ns.LossMeanSquares( 'BC_D', BC_D),
+          ns.LossMeanSquares( 'BC_D', BC_D, weight = 50.0),
           ns.LossMeanSquares( 'BC_N', BC_N)]
 
 loss_test = ns.LossMeanSquares('fit', test_loss)

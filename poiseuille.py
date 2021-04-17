@@ -96,17 +96,15 @@ def PDE(x, k, force):  # k is the coordinate of the vectorial equation
         lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
     return tf.math.abs(rho * (u * deqx + v * deqy) - mu * (lapl_eq) - force)
 
-def BC_D():
+def BC_D(x, k, g_bc = None):
     with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x_BC_x0)
-        tape.watch(x_BC_y0)
-        tape.watch(x_BC_y1)
-        u_vect_0 = model(x_BC_x0)
-        u_vect_1 = model(x_BC_y0)
-        u_vect_2 = model(x_BC_y1)
-        u_loss = tf.math.abs(u_vect_0[:,0]-inlet) + tf.math.abs(u_vect_1[:,0]) + tf.math.abs(u_vect_2[:,0])
-        v_loss = tf.math.abs(u_vect_0[:,1]) + tf.math.abs(u_vect_1[:,1]) + tf.math.abs(u_vect_2[:,1])
-    return u_loss + v_loss
+        if g_bc is None:
+            samples = x.shape[0]
+            g_bc = tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype())
+        tape.watch(x)
+        u = model(x)[:,k]
+        return tf.math.abs(u - g_bc)
+    
 
 def BC_N():
     with ns.GradientTape(persistent = True) as tape:
@@ -133,9 +131,11 @@ def test_loss():
     return (u - u_test) * (u - u_test) + (v - v_test) * (v - v_test)
 
 # %% Losses definition
-losses = [ns.LossMeanSquares('PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 2.0, normalization = num_PDE),
-          ns.LossMeanSquares('PDE_V', lambda: PDE(x_PDE, 1, f_2), weight = 2.0, normalization = num_PDE),
-          ns.LossMeanSquares( 'BC_D',  BC_D, weight = 10.0, normalization = 3 * num_BC),
+losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 2.0, normalization = num_PDE),
+          ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE, 1, f_2), weight = 2.0, normalization = num_PDE),
+          ns.LossMeanSquares('BCD_x0', lambda: BC_D(x_BC_x0, 0, inlet) + BC_D(x_BC_x0, 1) , weight = 10.0, normalization = num_BC),
+          ns.LossMeanSquares('BCD_y0', lambda: BC_D(x_BC_y0, 0) + BC_D(x_BC_y0, 1) , weight = 10.0, normalization = num_BC),
+          ns.LossMeanSquares('BCD_y1', lambda: BC_D(x_BC_y1, 0) + BC_D(x_BC_y1, 1) , weight = 10.0, normalization = num_BC),
           ns.LossMeanSquares( 'BC_N',  BC_N, weight = 10.0, normalization = num_BC),
           ns.LossMeanSquares('Hints', Hints, weight = 15.0, normalization = num_hint)
           ]
@@ -147,6 +147,14 @@ pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
 ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 500)
 
+
+# %% Saving Loss History
+
+problem_name = "Poiseuille"
+history_file = os.path.join(cwd, "{}_history_loss.json".format(problem_name))
+pb.save_history(history_file)
+ns.utils.plot_history(history_file)
+history = ns.utils.load_json(history_file)
 # %% Post-processing
 import matplotlib.pyplot as plt
 fig = plt.figure()

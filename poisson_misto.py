@@ -92,6 +92,14 @@ pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 10)
 ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 500)
 
+# %% Saving Loss History
+
+problem_name = "Poisson_Misto"
+history_file = os.path.join(cwd, "{}_history_loss.json".format(problem_name))
+pb.save_history(history_file)
+ns.utils.plot_history(history_file)
+history = ns.utils.load_json(history_file)
+
 # %% Post-processing
 import matplotlib.pyplot as plt
 fig = plt.figure()
