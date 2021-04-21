@@ -6,47 +6,61 @@ import os
 cwd = os.path.abspath(os.getcwd())
 sys.path.append(os.path.join(cwd,"nisaba"))
 import nisaba as ns
-import nisaba.experimental as nse
+from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
 
 #############################################################################
-#  rho * (u * u_x + v * u_y) - mu * (u_xx + u_yy) = -p_x      in \Omega = (0, L) x (0, 2*delta)
-#  rho * (u * v_x + v * v_y) - mu * (v_xx + v_yy) = -p_y      in \Omega = (0, L) x (0, 2*delta)
-#  u   = v   = 0                                              in (0, L) x {0, 2*delta}
-#  u_x = v_x = 0                                              in {0, L} x (0, 2*delta)
+#  (u * u_x + v * u_y) - (u_xx + u_yy) / Re + p_x = 0         in \Omega = (0, 1) x (0, 2*delta)
+#  (u * v_x + v * v_y) - (v_xx + v_yy) / Re + p_y = 0         in \Omega = (0, 1) x (0, 2*delta)
+#  u   = v   = 0                                              in (0, 1) x {0, 2*delta}
+#  u_x = v_x = 0                                              in {0, 1} x (0, 2*delta)
+#  p = p_str                                                  in {0} x (0, 2*delta)
+#  p = p_end                                                  in {1} x (0, 2*delta)
+#  p_y = 0                                                    in (0, 1) x {0, 2*delta}
 #
-# u_exact(x,y) = - p_x * y * (2 - y / delta) * delta / (2*mu)
+# u_exact(x,y) = - Re * (p_end-p_str)/L * y * (2 - y / delta) * delta / 2
 # v_exact(x,y) = 0 
+# p_exact(x,y) = (p_end-p_str)/L * x + p_str
 #############################################################################
 
 # %% Options
-# Domain Setup
-L      = 1
-delta  = 0.05
-H = 2 * delta
-# Experiment setup
-P_str = 1000000
+# Fluid and Flow Setup
+dim = 2
+rho   = 3100  # lava density
+mu    = 890   # lava viscosity
+Ub    = 1     # Bulk velocity
+L_dim = 1     # length of the pipe
+H_dim = 0.1   # heigth of the pipe
+P_str = 1e6 
 P_end = 0
-# Fluid Setup (lava)
-rho = 3100
-mu  = 890
 
-# Numerical options
-num_PDE  = 200
-num_BC   = 20 # points for each edge
-num_test = 1000
+# Adimensionalization
+Re = rho * Ub * L_dim / mu
+L = 1
+H = H_dim / L_dim
+delta = H / 2
+p_str = P_str / (rho * Ub^2)
+p_end = P_end / (rho * Ub^2)
+
+print("Reynolds Number -> {}".format(Re))
 
 # %% Forcing and Solutions
-dim = 2
-p_x = (P_end - P_str) / L
+p_x = p_end - p_str
 p_y = 0
-forcing_x = lambda x: -p_x + 0*x[:,0]
-forcing_y = lambda x: -p_y + 0*x[:,0] 
 
-u_exact   = lambda x: -p_x * x[:,1] * (2 - x[:,1] / delta) * delta / (2*mu)
+forcing_x = lambda x: 0*x[:,0]
+forcing_y = lambda x: 0*x[:,0] 
+
+u_exact   = lambda x: - Re * p_x * x[:,1] * (2 - x[:,1] / delta) * delta / 2
 v_exact   = lambda x: 0*x[:,0]
+p_exact   = lambda x: (p_end-p_str) * x[:,0] + p_str
  
+# %% Numerical options
+num_PDE  = 200
+num_BC   = 20 # points for each edge
+num_hint = 50
+num_test = 1000
 
 # %% Inizialization
 
@@ -58,88 +72,108 @@ model = tf.keras.Sequential([
     tf.keras.layers.Dense(20, input_shape=(2,), activation=tf.nn.tanh),
     tf.keras.layers.Dense(20, activation=tf.nn.tanh),
     tf.keras.layers.Dense(20, activation=tf.nn.tanh),
-    tf.keras.layers.Dense(2)
+    tf.keras.layers.Dense(3)
 ])
 
-x_PDE   = tf.random.uniform(shape = [num_PDE, 2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
-x_BC_x0 = tf.random.uniform(shape = [num_BC,  2], minval = [0, 0],  maxval = [0, H], dtype = ns.config.get_dtype())
-x_BC_x1 = tf.random.uniform(shape = [num_BC,  2], minval = [L, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
-x_BC_y0 = tf.random.uniform(shape = [num_BC,  2], minval = [0, 0],  maxval = [L, 0], dtype = ns.config.get_dtype())
-x_BC_y1 = tf.random.uniform(shape = [num_BC,  2], minval = [0, H],  maxval = [L, H], dtype = ns.config.get_dtype())
-x_test  = tf.random.uniform(shape = [num_test,2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
-x_BC_D = tf.concat([x_BC_y0, x_BC_y1], axis = 0)
-x_BC_N = tf.concat([x_BC_x0, x_BC_x1], axis = 0)
+x_PDE   = tf.random.uniform(shape = [num_PDE,  2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
+x_hint  = tf.random.uniform(shape = [num_hint, 2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
+x_BC_x0 = tf.random.uniform(shape = [num_BC,   2], minval = [0, 0],  maxval = [0, H], dtype = ns.config.get_dtype())
+x_BC_x1 = tf.random.uniform(shape = [num_BC,   2], minval = [L, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
+x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [0, 0],  maxval = [L, 0], dtype = ns.config.get_dtype())
+x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [0, H],  maxval = [L, H], dtype = ns.config.get_dtype())
+x_test  = tf.random.uniform(shape = [num_test, 2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
 
 
 u_test = u_exact(x_test)[:, None]
 v_test = v_exact(x_test)[:, None]
+p_test = p_exact(x_test)[:, None]
+u_hint = u_exact(x_hint)[:, None]
+v_hint = v_exact(x_hint)[:, None]
+p_hint = p_exact(x_hint)[:, None]
+inlet = u_exact(x_BC_x0)[:, None]
+p_inlet = p_exact(x_BC_x0)[:, None]
+p_outlet = p_exact(x_BC_x1)[:, None]
+
 f_1 = forcing_x(x_PDE)
 f_2 = forcing_y(x_PDE)
 
 # %% Losses creation
 
-# def PDE_U():
-#     return model(x_PDE)
-
-def PDE_U():
+def PDE(x, k, force):  # k is the coordinate of the vectorial equation
     with ns.GradientTape(persistent=True) as tape:
-        tape.watch(x_PDE)
-        u_vect = model(x_PDE)
+        tape.watch(x)
+        u_vect = model(x)
         u = u_vect[:,0]
         v = u_vect[:,1]
-        grad_u = nse.physics.tens_style.gradient_scalar(tape, u, x_PDE)
-        dux = grad_u[:,0]
-        duy = grad_u[:,1]
-        lapl_u = nse.physics.tens_style.laplacian_scalar(tape, u, x_PDE, dim)
-    return rho * (u * dux + v * duy) - mu * (lapl_u) - f_1
+        p = u_vect[:,2]
+        u_eq = u_vect[:,k]
+        dp = operator.gradient_scalar(tape, p, x)[:, k]
+        grad_eq = operator.gradient_scalar(tape, u_eq, x)
+        deqx = grad_eq[:,0]
+        deqy = grad_eq[:,1]
+        lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
+    return (u * deqx + v * deqy) - (lapl_eq) / Re + dp
 
+def BC_D(x, k, g_bc = None):
+    with ns.GradientTape(persistent = True) as tape:
+        if g_bc is None:
+            samples = x.shape[0]
+            g_bc = tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype())
+        tape.watch(x)
+        uk = model(x)[:,k]
+        return tf.math.abs(uk - g_bc)
 
-def PDE_V():
-    with ns.GradientTape(persistent=True) as tape:
-        tape.watch(x_PDE)
-        u_vect = model(x_PDE)
+def BC_N(x, k, j, g_bc = None):
+    with ns.GradientTape(persistent = True) as tape:
+        if g_bc is None:
+            samples = x.shape[0]
+            g_bc = tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype())
+        tape.watch(x)
+        uk = model(x)[:,k]
+        uk_j = operator.gradient_scalar(tape, uk, x)[:,j]
+        return tf.math.abs(uk_j - g_bc)
+
+def Hints():
+    with ns.GradientTape(persistent = True) as tape:
+        tape.watch(x_hint)
+        u_vect = model(x_hint)
         u = u_vect[:,0]
-        v = u_vect[:,1]
-        grad_v = nse.physics.tens_style.gradient_scalar(tape, v, x_PDE)
-        dvx = grad_v[:,0]
-        dvy = grad_v[:,1]
-        lapl_v = nse.physics.tens_style.laplacian_scalar(tape, v, x_PDE, dim)
-    return rho * (u * dvx + v * dvy) - mu * (lapl_v) - f_2
+        v = u_vect[:,1] 
+        p = u_vect[:,2]
+    return (u - u_hint) * (u - u_hint) + (v - v_hint) * (v - v_hint) + (p - p_hint) * (p - p_hint)
 
-def BC_D():
-    with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x_BC_D)
-        u_vect = model(x_BC_D)
-    return u_vect[:,0] + u_vect[:,1]
-
-def BC_N():
-    with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x_BC_N)
-        u_vect = model(x_BC_N)
-        grad_u_vect = nse.physics.tens_style.gradient_vector(tape, u_vect, x_BC_N, dim)
-        u_x = grad_u_vect[:,0,0]
-        v_x = grad_u_vect[:,1,0]
-    return u_x + v_x
-
-def test_loss():
+def test_loss(): 
     u_vect = model(x_test)
     u = u_vect[:,0]
     v = u_vect[:,1]
-    return (u - u_test) * (u - u_test) + (v - v_test) * (v - v_test)
+    p = u_vect[:,2]
+    return (u - u_test) * (u - u_test) + (v - v_test) * (v - v_test) + (p - p_test) * (p - p_test)
 
 # %% Losses definition
-losses = [ns.LossMeanSquares('PDE_U', PDE_U, weight = 2.0),
-          ns.LossMeanSquares('PDE_V', PDE_V, weight = 2.0),
-          ns.LossMeanSquares( 'BC_D',  BC_D),
-          ns.LossMeanSquares( 'BC_N',  BC_N)]
-
-loss_test = ns.LossMeanSquares('fit', test_loss)
+losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 1.0),
+          ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE, 1, f_2), weight = 1.0),
+          ns.LossMeanSquares('BCD_x0', lambda: BC_D(x_BC_x0,0  , inlet) + BC_D(x_BC_x0, 1) , weight = 10.0),
+          ns.LossMeanSquares('BCD_y0', lambda: BC_D(x_BC_y0,0  ) + BC_D(x_BC_y0,1  ) , weight = 10.0),
+          ns.LossMeanSquares('BCD_y1', lambda: BC_D(x_BC_y1,0  ) + BC_D(x_BC_y1,1  ) , weight = 10.0),
+          ns.LossMeanSquares( 'BC_N',  lambda: BC_N(x_BC_x1,0,0) + BC_N(x_BC_x1,2,1) + BC_N(x_BC_y0,2,1) + BC_N(x_BC_y1,1,0) , weight = 10.0),
+          ns.LossMeanSquares('BCD_pressure', lambda: BC_D(x_BC_x0,2, p_inlet) + BC_D(x_BC_x1,2, p_outlet) , weight = 10.0),
+          #ns.LossMeanSquares('Hints', Hints, weight = 15.0)
+          ]
+loss_test = ns.LossMeanSquares('fit', test_loss, normalization = num_test)
 
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 500)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 250)
+
+# %% Saving Loss History
+
+problem_name = "Poiseuille_Adimensional"
+history_file = os.path.join(cwd, "{}_history_loss.json".format(problem_name))
+pb.save_history(history_file)
+ns.utils.plot_history(history_file)
+history = ns.utils.load_json(history_file)
 
 # %% Post-processing
 import matplotlib.pyplot as plt
@@ -158,5 +192,13 @@ ax.legend()
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('velocity v')
+fig = plt.figure()
+ax = fig.add_subplot(121, projection='3d')
+ax.scatter(x_test[:,0], x_test[:,1], u_test, label = 'exact solution')
+ax.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,2].numpy(), label = 'numerical solution')
+ax.legend()
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('p')
 
 plt.show(block = True)
