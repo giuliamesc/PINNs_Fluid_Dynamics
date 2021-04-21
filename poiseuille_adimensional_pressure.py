@@ -136,12 +136,12 @@ def test_loss():
 # %% Losses definition
 losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 1.0),
           ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE, 1, f_2), weight = 1.0),
-          ns.LossMeanSquares('BCN_x0_x', lambda: BC_N(x_BC_x0,0,0), weight = 5.0),
+          ns.LossMeanSquares('BCD_x0_x', lambda: BC_D(x_BC_x0,0, inlet), weight = 5.0),
           ns.LossMeanSquares('BCD_x0_y', lambda: BC_D(x_BC_x0,1), weight = 5.0),
           ns.LossMeanSquares('BCD_y0', lambda: BC_D(x_BC_y0,0  ) + BC_D(x_BC_y0,1  ), weight = 10.0),
           ns.LossMeanSquares('BCD_y1', lambda: BC_D(x_BC_y1,0  ) + BC_D(x_BC_y1,1  ), weight = 10.0),
           ns.LossMeanSquares( 'BC_N',  lambda: BC_N(x_BC_x1,0,0) + BC_N(x_BC_x1,1,0), weight = 10.0),
-          #ns.LossMeanSquares('Hints', lambda: Hints(), weight = 15.0)
+          #ns.LossMeanSquares('Hints', Hints, weight = 15.0)
           ]
 loss_test = ns.LossMeanSquares('fit', test_loss, normalization = num_test)
 
@@ -149,7 +149,7 @@ loss_test = ns.LossMeanSquares('fit', test_loss, normalization = num_test)
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 250)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 500)
 
 # %% Saving Loss History
 
