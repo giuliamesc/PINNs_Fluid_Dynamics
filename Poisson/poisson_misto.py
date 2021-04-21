@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 #%%
-import sys
 import os
 cwd = os.path.abspath(os.getcwd())
-sys.path.append(os.path.join(cwd,"nisaba"))
+os.chdir("../")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
