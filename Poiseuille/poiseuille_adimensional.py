@@ -108,7 +108,7 @@ def BC_D(x, k, g_bc = None):
         uk = model(x)[:,k]
         return tf.math.abs(uk - g_bc)
 
-def BC_N(x, k, j, g_bc = None):
+def BC_N(x, k, j, g_bc = None): #j is the direction in which we want the derivative
     with ns.GradientTape(persistent = True) as tape:
         if g_bc is None:
             samples = x.shape[0]
@@ -133,13 +133,16 @@ def test_loss():
     return (u - u_test) * (u - u_test) + (v - v_test) * (v - v_test)
 
 # %% Losses definition
-losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 1.0),
-          ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE, 1, f_2), weight = 1.0),
+losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE,0,f_1), weight = 1.0),
+          ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE,1,f_2), weight = 1.0),
           ns.LossMeanSquares('BCN_x0_x', lambda: BC_N(x_BC_x0,0,0), weight = 5.0),
           ns.LossMeanSquares('BCD_x0_y', lambda: BC_D(x_BC_x0,1), weight = 5.0),
-          ns.LossMeanSquares('BCD_y0', lambda: BC_D(x_BC_y0,0  ) + BC_D(x_BC_y0,1  ), weight = 10.0),
-          ns.LossMeanSquares('BCD_y1', lambda: BC_D(x_BC_y1,0  ) + BC_D(x_BC_y1,1  ), weight = 10.0),
-          ns.LossMeanSquares( 'BC_N',  lambda: BC_N(x_BC_x1,0,0) + BC_N(x_BC_x1,1,0), weight = 10.0),
+          ns.LossMeanSquares('BCD_y0', lambda: BC_D(x_BC_y0,0) + BC_D(x_BC_y0,1), 
+                             weight = 10.0),
+          ns.LossMeanSquares('BCD_y1', lambda: BC_D(x_BC_y1,0) + BC_D(x_BC_y1,1), 
+                             weight = 10.0),
+          ns.LossMeanSquares( 'BC_N',  lambda: BC_N(x_BC_x1,0,0) 
+                             + BC_N(x_BC_x1,1,0), weight = 10.0),
           #ns.LossMeanSquares('Hints', lambda: Hints(), weight = 15.0)
           ]
 loss_test = ns.LossMeanSquares('fit', test_loss, normalization = num_test)

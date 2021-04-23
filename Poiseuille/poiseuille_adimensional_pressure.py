@@ -86,10 +86,12 @@ u_hint   = u_exact(x_hint)[:, None]
 v_hint   = v_exact(x_hint)[:, None]
 p_hint   = p_exact(x_hint)[:, None]
 inlet    = u_exact(x_BC_x0)[:, None]
+p_y0     = p_exact(x_BC_y0)[:, None]
 p_inlet  = p_exact(x_BC_x0)[:, None]
 p_outlet = p_exact(x_BC_x1)[:, None]
 f_1 = forcing_x(x_PDE)
 f_2 = forcing_y(x_PDE)
+
 
 # %% Losses creation
 
@@ -144,12 +146,21 @@ def test_loss():
     return (u - u_test) * (u - u_test) + (v - v_test) * (v - v_test) + (p - p_test) * (p - p_test)
 
 # %% Losses definition
-losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 100.0),
-          ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE, 1, f_2), weight = 100.0),
-          ns.LossMeanSquares( 'BC_x0', lambda: BC_D(x_BC_x0,0, inlet) + BC_D(x_BC_x0,1) + BC_D(x_BC_x0,2, p_inlet), weight = 10.0),
-          ns.LossMeanSquares( 'BC_x1', lambda: BC_N(x_BC_x1,0,0) + BC_N(x_BC_x1,1,0) + BC_D(x_BC_x1,2, p_outlet), weight = 10.0),
-          ns.LossMeanSquares( 'BC_y0', lambda: BC_D(x_BC_y0,0  ) + BC_D(x_BC_y0,1  ) + BC_N(x_BC_y0, 2, 1), weight = 10.0),
-          ns.LossMeanSquares( 'BC_y1', lambda: BC_D(x_BC_y1,0  ) + BC_D(x_BC_y1,1  ) + BC_N(x_BC_y1, 2, 1), weight = 10.0),
+losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 10.0),
+          ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE, 1, f_2), weight = 10.0),
+          ns.LossMeanSquares( 'BC_x0', lambda: BC_N(x_BC_x0,0,0) + BC_D(x_BC_x0,1), 
+                             weight = 5.0),
+          ns.LossMeanSquares( 'BC_x1', lambda: BC_N(x_BC_x1,0,0) + 
+                             BC_N(x_BC_x1,1,0), weight = 5.0),
+          ns.LossMeanSquares( 'BC_y0', lambda: BC_D(x_BC_y0,0  ) + BC_D(x_BC_y0,1  ), 
+                             weight = 5.0),
+          ns.LossMeanSquares( 'BC_y1', lambda: BC_D(x_BC_y1,0  ) + BC_D(x_BC_y1,1  ), 
+                             weight = 5.0),
+          ns.LossMeanSquares( 'BCD_pressure', lambda: BC_D(x_BC_x0,2, p_inlet) 
+                             + BC_D(x_BC_x1,2, p_outlet), 
+                             weight = 5.0 ),
+          ns.LossMeanSquares( 'BCN_pressure', lambda: BC_N(x_BC_y1, 2, 1) + BC_N(x_BC_y0, 2, 1), 
+                             weight = 5.0),
           #ns.LossMeanSquares('Hints', Hints, weight = 15.0)
           ]
 loss_test = ns.LossMeanSquares('fit', test_loss, normalization = num_test)
@@ -186,7 +197,7 @@ ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('velocity v')
 ax = fig.add_subplot(133, projection='3d')
-ax.scatter(x_test[:,0], x_test[:,1], v_test, label = 'exact solution')
+ax.scatter(x_test[:,0], x_test[:,1], p_test, label = 'exact solution')
 ax.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,2].numpy(), label = 'numerical solution')
 ax.legend()
 ax.set_xlabel('x')
