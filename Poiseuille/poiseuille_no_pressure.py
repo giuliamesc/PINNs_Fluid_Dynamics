@@ -149,7 +149,7 @@ ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 250)
 
 # %% Saving Loss History
 
-problem_name = "Poiseuille_Adimensional"
+problem_name = "Poiseuille_No_Pressure"
 history_file = os.path.join(cwd, "{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
 ns.utils.plot_history(history_file)
