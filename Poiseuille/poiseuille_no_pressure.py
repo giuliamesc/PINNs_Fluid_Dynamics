@@ -108,12 +108,11 @@ def BC_D(x, k, g_bc = None):
     rhs = create_rhs(x, g_bc)
     return uk - rhs
 
-def BC_N(x, k, j, g_bc = None): #j is the direction in which we want the derivative
+def BC_N(x, k, j, g_bc = None):
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x)
         uk = model(x)[:,k]
         uk_j = operator.gradient_scalar(tape, uk, x)[:,j]
-<<<<<<< HEAD:Poiseuille/poiseuille_no_pressure.py
         rhs = create_rhs(x, g_bc)
         return uk_j - rhs
 
@@ -141,38 +140,6 @@ losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)),
              ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_exact))]
-=======
-        return tf.math.abs(uk_j - g_bc)
-
-def Hints():
-    with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x_hint)
-        u_vect = model(x_hint)
-        u = u_vect[:,0]
-        v = u_vect[:,1] 
-    return (u - u_hint) * (u - u_hint) + (v - v_hint) * (v - v_hint)
-
-def test_loss():
-    u_vect = model(x_test)
-    u = u_vect[:,0]
-    v = u_vect[:,1]
-    return (u - u_test) * (u - u_test) + (v - v_test) * (v - v_test)
-
-# %% Losses definition
-losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE,0,f_1), weight = 1.0),
-          ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE,1,f_2), weight = 1.0),
-          ns.LossMeanSquares('BCN_x0_x', lambda: BC_N(x_BC_x0,0,0), weight = 5.0),
-          ns.LossMeanSquares('BCD_x0_y', lambda: BC_D(x_BC_x0,1), weight = 5.0),
-          ns.LossMeanSquares('BCD_y0', lambda: BC_D(x_BC_y0,0) + BC_D(x_BC_y0,1), 
-                             weight = 10.0),
-          ns.LossMeanSquares('BCD_y1', lambda: BC_D(x_BC_y1,0) + BC_D(x_BC_y1,1), 
-                             weight = 10.0),
-          ns.LossMeanSquares( 'BC_N',  lambda: BC_N(x_BC_x1,0,0) 
-                             + BC_N(x_BC_x1,1,0), weight = 10.0),
-          #ns.LossMeanSquares('Hints', lambda: Hints(), weight = 15.0)
-          ]
-loss_test = ns.LossMeanSquares('fit', test_loss, normalization = num_test)
->>>>>>> 37adad19eb165efbb1e83a80305b1f487a61fa31:Poiseuille/poiseuille_adimensional.py
 
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
