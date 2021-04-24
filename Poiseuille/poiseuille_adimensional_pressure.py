@@ -10,6 +10,7 @@ import tensorflow as tf
 import numpy as np
 
 #############################################################################
+#  u_x + v_y = 0                                           in \Omega = (0, 1) x (0, 2*delta)
 #  (u * u_x + v * u_y) - (u_xx + u_yy) / Re + p_x = 0      in \Omega = (0, 1) x (0, 2*delta)
 #  (u * v_x + v * v_y) - (v_xx + v_yy) / Re + p_y = 0      in \Omega = (0, 1) x (0, 2*delta)
 #  u   = v   = 0                                              in (0, 1) x {0, 2*delta}
