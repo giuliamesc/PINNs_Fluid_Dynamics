@@ -95,6 +95,13 @@ f_2 = forcing_y(x_PDE)
 
 # %% Losses creation
 
+def PDE_MASS():
+    with ns.GradientTape(persistent=True) as tape:
+        tape.watch(x_PDE)
+        velocity = model(x_PDE)[:,0:2]
+        div = operator.divergence_vector(tape, velocity, x_PDE, dim)
+    return div
+
 def PDE(x, k, force):  # k is the coordinate of the vectorial equation
     with ns.GradientTape(persistent=True) as tape:
         tape.watch(x)
@@ -146,21 +153,15 @@ def test_loss():
     return (u - u_test) * (u - u_test) + (v - v_test) * (v - v_test) + (p - p_test) * (p - p_test)
 
 # %% Losses definition
-losses = [ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 10.0),
+losses = [ns.LossMeanSquares('PDE_MASS', PDE_MASS, weight = 10.0),
+          ns.LossMeanSquares(' PDE_U', lambda: PDE(x_PDE, 0, f_1), weight = 10.0),
           ns.LossMeanSquares(' PDE_V', lambda: PDE(x_PDE, 1, f_2), weight = 10.0),
-          ns.LossMeanSquares( 'BC_x0', lambda: BC_N(x_BC_x0,0,0) + BC_D(x_BC_x0,1), 
-                             weight = 5.0),
-          ns.LossMeanSquares( 'BC_x1', lambda: BC_N(x_BC_x1,0,0) + 
-                             BC_N(x_BC_x1,1,0), weight = 5.0),
-          ns.LossMeanSquares( 'BC_y0', lambda: BC_D(x_BC_y0,0  ) + BC_D(x_BC_y0,1  ), 
-                             weight = 5.0),
-          ns.LossMeanSquares( 'BC_y1', lambda: BC_D(x_BC_y1,0  ) + BC_D(x_BC_y1,1  ), 
-                             weight = 5.0),
-          ns.LossMeanSquares( 'BCD_pressure', lambda: BC_D(x_BC_x0,2, p_inlet) 
-                             + BC_D(x_BC_x1,2, p_outlet), 
-                             weight = 5.0 ),
-          ns.LossMeanSquares( 'BCN_pressure', lambda: BC_N(x_BC_y1, 2, 1) + BC_N(x_BC_y0, 2, 1), 
-                             weight = 5.0),
+          ns.LossMeanSquares( 'BC_x0', lambda: BC_N(x_BC_x0,0,0) + BC_D(x_BC_x0,1), weight = 5.0),
+          ns.LossMeanSquares( 'BC_x1', lambda: BC_N(x_BC_x1,0,0) + BC_N(x_BC_x1,1,0), weight = 5.0),
+          ns.LossMeanSquares( 'BC_y0', lambda: BC_D(x_BC_y0,0  ) + BC_D(x_BC_y0,1  ), weight = 5.0),
+          ns.LossMeanSquares( 'BC_y1', lambda: BC_D(x_BC_y1,0  ) + BC_D(x_BC_y1,1  ), weight = 5.0),
+          ns.LossMeanSquares( 'BCD_pressure', lambda: BC_D(x_BC_x0,2, p_inlet) + BC_D(x_BC_x1,2, p_outlet), weight = 5.0 ),
+          ns.LossMeanSquares( 'BCN_pressure', lambda: BC_N(x_BC_y1, 2, 1) + BC_N(x_BC_y0, 2, 1), weight = 5.0),
           #ns.LossMeanSquares('Hints', Hints, weight = 15.0)
           ]
 loss_test = ns.LossMeanSquares('fit', test_loss, normalization = num_test)
