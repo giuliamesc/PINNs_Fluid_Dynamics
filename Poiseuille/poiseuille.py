@@ -13,11 +13,10 @@ import numpy as np
 #  u_x + v_y = 0                                           in \Omega = (0, 1) x (0, 2*delta)
 #  (u * u_x + v * u_y) - (u_xx + u_yy) / Re + p_x = 0      in \Omega = (0, 1) x (0, 2*delta)
 #  (u * v_x + v * v_y) - (v_xx + v_yy) / Re + p_y = 0      in \Omega = (0, 1) x (0, 2*delta)
-#  u   = v   = 0                                              in (0, 1) x {0, 2*delta}
-#  u_x = v_x = 0                                              in {0, 1} x (0, 2*delta)
-#  p = p_str                                                  in {0} x (0, 2*delta)
-#  p = p_end                                                  in {1} x (0, 2*delta)
-#  p_y = 0                                                    in (0, 1) x {0, 2*delta}
+#  u   = v   = 0                                           in (0, 1) x {0, 2*delta}
+#  dvdx = 0                                                in {0, 1} x (0, 2*delta)
+#  1/ Re * dudx - p = p_end                                in {1} x (0, 2*delta)
+#  - 1/ Re * dudx + p = p_str                              in {0} x (0, 2*delta)
 #
 #  p_exact(x,y) = (p_end-p_str)/L * x + p_str
 #  u_exact(x,y) = - Re * p_x * y * (2 - y / delta) * delta / 2
@@ -122,6 +121,26 @@ def BC_D(x, k, g_bc = None):
     rhs = create_rhs(x, g_bc)
     return uk - rhs
 
+# def BC_N_x_x0(x):
+#     with ns.GradientTape(persistent = True) as tape:
+#         tape.watch(x)
+#         u = model(x)[:,0]
+#         p = model(x)[:,2]
+#         dudx = operator.gradient_scalar(tape, u, x)[:,0]
+#         samples = x.shape[0]
+#         rhs = tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype()) + p_str
+#         return -1/Re * dudx + p - rhs
+
+def BC_N_x_x1(x):
+    with ns.GradientTape(persistent = True) as tape:
+        tape.watch(x)
+        u = model(x)[:,0]
+        p = model(x)[:,2]
+        dudx = operator.gradient_scalar(tape, u, x)[:,0]
+        samples = x.shape[0]
+        rhs = tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype()) + p_end
+        return 1/Re * dudx - p - rhs
+
 def BC_N(x, k, j, g_bc = None):
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x)
@@ -145,7 +164,7 @@ BCD_losses = [ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), w
               ns.LossMeanSquares('BCD_y0_v', lambda: BC_D(x_BC_y0,1), weight = 1.0),
               ns.LossMeanSquares('BCD_y1_u', lambda: BC_D(x_BC_y1,0), weight = 1.0),
               ns.LossMeanSquares('BCD_y1_v', lambda: BC_D(x_BC_y1,1), weight = 1.0)]
-BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N(x_BC_x1,0,0), weight = 1.0),
+BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N_x_x1(x_BC_x1), weight = 1.0),
               ns.LossMeanSquares('BCN_x1_v', lambda: BC_N(x_BC_x1,1,0), weight = 1.0)]
 EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1.0),
               ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1.0)]
@@ -155,7 +174,7 @@ losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)),
              ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_exact)),
-             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_exact))]
+             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_exact), normalization = 1e4)]
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
@@ -178,7 +197,7 @@ v_test   = v_exact(x_test)[:, None]
 
 import matplotlib.pyplot as plt
 
-fig_1 = plt.figure(1)
+fig_1 = plt.figure(2)
 ax_1 = fig_1.add_subplot(projection='3d')
 ax_1.scatter(x_test[:,0], x_test[:,1], u_test, label = 'exact solution')
 ax_1.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,0].numpy(), label = 'numerical solution')
@@ -187,7 +206,7 @@ ax_1.set_xlabel('x')
 ax_1.set_ylabel('y')
 ax_1.set_zlabel('velocity u')
 
-fig_2 = plt.figure(2)
+fig_2 = plt.figure(3)
 ax_2 = fig_2.add_subplot(projection='3d')
 ax_2.scatter(x_test[:,0], x_test[:,1], v_test, label = 'exact solution')
 ax_2.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,1].numpy(), label = 'numerical solution')
@@ -196,7 +215,7 @@ ax_2.set_xlabel('x')
 ax_2.set_ylabel('y')
 ax_2.set_zlabel('velocity v')
 
-fig_3 = plt.figure(3)
+fig_3 = plt.figure(4)
 ax_3 = fig_3.add_subplot(projection='3d')
 ax_3.scatter(x_test[:,0], x_test[:,1], p_test, label = 'exact solution')
 ax_3.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,2].numpy(), label = 'numerical solution')
