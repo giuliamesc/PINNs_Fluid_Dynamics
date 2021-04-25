@@ -14,9 +14,10 @@ import numpy as np
 #  (u * u_x + v * u_y) - (u_xx + u_yy) / Re + p_x = 0      in \Omega = (0, 1) x (0, 2*delta)
 #  (u * v_x + v * v_y) - (v_xx + v_yy) / Re + p_y = 0      in \Omega = (0, 1) x (0, 2*delta)
 #  u   = v   = 0                                           in (0, 1) x {0, 2*delta}
-#  dvdx = 0                                                in {0, 1} x (0, 2*delta)
-#  1/ Re * dudx - p = p_end                                in {1} x (0, 2*delta)
-#  - 1/ Re * dudx + p = p_str                              in {0} x (0, 2*delta)
+#  1/ Re * u_x - p = p_end                                 in {1} x (0, 2*delta)
+#  v_x = 0                                                 in {1} x (0, 2*delta)
+#  u = u_exact                                             in {0} x (0, 2*delta)
+#  v = v_exact                                             in {0} x (0, 2*delta)
 #
 #  p_exact(x,y) = (p_end-p_str)/L * x + p_str
 #  u_exact(x,y) = - Re * p_x * y * (2 - y / delta) * delta / 2
@@ -85,6 +86,9 @@ def create_rhs(x, force):
     if force is None:
         samples = x.shape[0]
         return tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype())
+    if type(force) == float:
+        samples = x.shape[0]
+        return tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype()) + force
     return force(x)
 
 # k is the coordinate of the vectorial equation
@@ -121,33 +125,14 @@ def BC_D(x, k, g_bc = None):
     rhs = create_rhs(x, g_bc)
     return uk - rhs
 
-# def BC_N_x_x0(x):
-#     with ns.GradientTape(persistent = True) as tape:
-#         tape.watch(x)
-#         u = model(x)[:,0]
-#         p = model(x)[:,2]
-#         dudx = operator.gradient_scalar(tape, u, x)[:,0]
-#         samples = x.shape[0]
-#         rhs = tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype()) + p_str
-#         return -1/Re * dudx + p - rhs
-
-def BC_N_x_x1(x):
-    with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x)
-        u = model(x)[:,0]
-        p = model(x)[:,2]
-        dudx = operator.gradient_scalar(tape, u, x)[:,0]
-        samples = x.shape[0]
-        rhs = tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype()) + p_end
-        return 1/Re * dudx - p - rhs
-
-def BC_N(x, k, j, g_bc = None):
+def BC_N(x, k, j, pr = None):
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x)
         uk = model(x)[:,k]
+        p = model(x)[:,2] * (k == j)
         uk_j = operator.gradient_scalar(tape, uk, x)[:,j]
-        rhs = create_rhs(x, g_bc)
-        return uk_j - rhs
+        rhs = create_rhs(x, pr) * (k == j)
+        return 1/Re * uk_j - p - rhs
 
 def exact_value(x, k, sol = None):
     uk = model(x)[:,k]
@@ -164,7 +149,7 @@ BCD_losses = [ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), w
               ns.LossMeanSquares('BCD_y0_v', lambda: BC_D(x_BC_y0,1), weight = 1.0),
               ns.LossMeanSquares('BCD_y1_u', lambda: BC_D(x_BC_y1,0), weight = 1.0),
               ns.LossMeanSquares('BCD_y1_v', lambda: BC_D(x_BC_y1,1), weight = 1.0)]
-BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N_x_x1(x_BC_x1), weight = 1.0),
+BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N(x_BC_x1,0,0,p_end), weight = 1.0),
               ns.LossMeanSquares('BCN_x1_v', lambda: BC_N(x_BC_x1,1,0), weight = 1.0)]
 EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1.0),
               ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1.0)]
