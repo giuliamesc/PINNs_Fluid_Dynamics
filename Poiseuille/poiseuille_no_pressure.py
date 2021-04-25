@@ -80,7 +80,7 @@ x_test  = tf.random.uniform(shape = [num_test, 2], minval = [0, 0],  maxval = [L
 def create_rhs(x, force):
     if force is None:
         samples = x.shape[0]
-        return tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype())
+        return tf.zeros(shape = [samples], dtype = ns.config.get_dtype())
     return force(x)
 
 # k is the coordinate of the vectorial equation

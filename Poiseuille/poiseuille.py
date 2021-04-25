@@ -85,10 +85,10 @@ x_test  = tf.random.uniform(shape = [num_test, 2], minval = [0, 0],  maxval = [L
 def create_rhs(x, force):
     if force is None:
         samples = x.shape[0]
-        return tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype())
+        return tf.zeros(shape = [samples], dtype = ns.config.get_dtype())
     if type(force) == float:
         samples = x.shape[0]
-        return tf.zeros(shape = [samples,1], dtype = ns.config.get_dtype()) + force
+        return tf.zeros(shape = [samples], dtype = ns.config.get_dtype()) + force
     return force(x)
 
 # k is the coordinate of the vectorial equation
@@ -140,21 +140,23 @@ def exact_value(x, k, sol = None):
     return uk - rhs
 
 # %% Training Losses definition
-PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1.0),
-              ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1.0),
-              ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1.0)]
-BCD_losses = [ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), weight = 1.0),
-              ns.LossMeanSquares('BCD_x0_v', lambda: BC_D(x_BC_x0,1), weight = 1.0),
-              ns.LossMeanSquares('BCD_y0_u', lambda: BC_D(x_BC_y0,0), weight = 1.0),
-              ns.LossMeanSquares('BCD_y0_v', lambda: BC_D(x_BC_y0,1), weight = 1.0),
-              ns.LossMeanSquares('BCD_y1_u', lambda: BC_D(x_BC_y1,0), weight = 1.0),
-              ns.LossMeanSquares('BCD_y1_v', lambda: BC_D(x_BC_y1,1), weight = 1.0)]
-BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N(x_BC_x1,0,0,p_end), weight = 1.0),
-              ns.LossMeanSquares('BCN_x1_v', lambda: BC_N(x_BC_x1,1,0), weight = 1.0)]
-EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1.0),
-              ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1.0)]
+PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e-2),
+              ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
+              ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)]
+BCD_losses = [ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), weight = 1e0),
+              ns.LossMeanSquares('BCD_x0_v', lambda: BC_D(x_BC_x0,1), weight = 1e0),
+              ns.LossMeanSquares('BCD_y0_u', lambda: BC_D(x_BC_y0,0), weight = 1e0),
+              ns.LossMeanSquares('BCD_y0_v', lambda: BC_D(x_BC_y0,1), weight = 1e0),
+              ns.LossMeanSquares('BCD_y1_u', lambda: BC_D(x_BC_y1,0), weight = 1e0),
+              ns.LossMeanSquares('BCD_y1_v', lambda: BC_D(x_BC_y1,1), weight = 1e0)]
+BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N(x_BC_x1,0,0,p_end), weight = 1e0),
+              ns.LossMeanSquares('BCN_x1_v', lambda: BC_N(x_BC_x1,1,0), weight = 1e0)]
+              #ns.LossMeanSquares('BCN_x0_u', lambda: BC_N(x_BC_x0,0,0,-p_str), weight = 1e0),
+              #ns.LossMeanSquares('BCN_x0_v', lambda: BC_N(x_BC_x0,1,0), weight = 1e0)]
+EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1e0),
+              ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1e0)]
 
-losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
+losses = PDE_losses + BCD_losses + BCN_losses #+ EXC_Losses
 
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)),
