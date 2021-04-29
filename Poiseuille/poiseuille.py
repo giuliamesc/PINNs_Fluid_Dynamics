@@ -49,14 +49,14 @@ p_x = p_end - p_str
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0] 
 
-p_exact   = lambda x: (p_end-p_str)/L * x[:,0] + p_str
+p_exact   = lambda x: ((p_end-p_str)/L * x[:,0] + p_str) / rho
 u_exact   = lambda x: - Re * p_x * x[:,1] * (2 - x[:,1] / delta) * delta / 2
 v_exact   = lambda x: 0*x[:,0]
  
 # %% Numerical options
 num_PDE  = 200
 num_BC   = 20 # points for each edge
-num_hint = 50
+num_hint = 10
 num_test = 1000
 
 # %% Inizialization
@@ -112,7 +112,7 @@ def PDE_MOM(x, k, force):
         u_eq = u_vect[:,k]
         
         grad_eq = operator.gradient_scalar(tape, u_eq, x)
-        dp   = operator.gradient_scalar(tape, p, x)[:,k]
+        dp   = operator.gradient_scalar(tape, p, x)[:,k] * rho
         deqx = grad_eq[:,0]
         deqy = grad_eq[:,1]
         lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
@@ -129,7 +129,7 @@ def BC_N(x, k, j, pr = None):
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x)
         uk = model(x)[:,k]
-        p = model(x)[:,2] * (k == j)
+        p = model(x)[:,2] * (k == j) * rho
         uk_j = operator.gradient_scalar(tape, uk, x)[:,j]
         rhs = create_rhs(x, pr) * (k == j)
         return 1/Re * uk_j - p - rhs
@@ -140,33 +140,36 @@ def exact_value(x, k, sol = None):
     return uk - rhs
 
 # %% Training Losses definition
-PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e-2),
+PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)]
-BCD_losses = [ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), weight = 1e0),
-              ns.LossMeanSquares('BCD_x0_v', lambda: BC_D(x_BC_x0,1), weight = 1e0),
+BCD_losses = [ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), weight = 1e2),
+              ns.LossMeanSquares('BCD_x0_v', lambda: BC_D(x_BC_x0,1), weight = 1e2),
               ns.LossMeanSquares('BCD_y0_u', lambda: BC_D(x_BC_y0,0), weight = 1e0),
               ns.LossMeanSquares('BCD_y0_v', lambda: BC_D(x_BC_y0,1), weight = 1e0),
               ns.LossMeanSquares('BCD_y1_u', lambda: BC_D(x_BC_y1,0), weight = 1e0),
               ns.LossMeanSquares('BCD_y1_v', lambda: BC_D(x_BC_y1,1), weight = 1e0)]
-BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N(x_BC_x1,0,0,p_end), weight = 1e0),
-              ns.LossMeanSquares('BCN_x1_v', lambda: BC_N(x_BC_x1,1,0), weight = 1e0)]
+BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N(x_BC_x1,0,0,p_end), weight = 1e2),
+              ns.LossMeanSquares('BCN_x1_v', lambda: BC_N(x_BC_x1,1,0), weight = 1e2)]
               #ns.LossMeanSquares('BCN_x0_u', lambda: BC_N(x_BC_x0,0,0,-p_str), weight = 1e0),
               #ns.LossMeanSquares('BCN_x0_v', lambda: BC_N(x_BC_x0,1,0), weight = 1e0)]
 EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1e0),
-              ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1e0)]
+              ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1e0),
+              ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint, 2, p_exact), weight = 1e0)]
 
-losses = PDE_losses + BCD_losses + BCN_losses #+ EXC_Losses
+losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
+#losses = BCD_losses + BCN_losses 
+#losses = PDE_losses + BCD_losses + BCN_losses 
 
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)),
              ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_exact)),
-             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_exact), normalization = 1e4)]
+             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_exact))]
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 500)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1100)
 
 # %% Saving Loss History
 
