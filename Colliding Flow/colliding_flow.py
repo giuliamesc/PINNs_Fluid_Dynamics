@@ -151,8 +151,8 @@ ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
 
 # %% Saving Loss History
 
-problem_name = "Colliding Flows"
-history_file = os.path.join(cwd, "{}_history_loss.json".format(problem_name))
+problem_name = "Colliding_Flows"
+history_file = os.path.join(cwd, "Images\\{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
 ns.utils.plot_history(history_file)
 history = ns.utils.load_json(history_file)

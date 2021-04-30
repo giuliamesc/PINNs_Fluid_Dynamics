@@ -169,12 +169,12 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1100)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
 
 # %% Saving Loss History
 
 problem_name = "Poiseuille"
-history_file = os.path.join(cwd, "{}_history_loss.json".format(problem_name))
+history_file = os.path.join(cwd, "Images\\{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
 ns.utils.plot_history(history_file)
 history = ns.utils.load_json(history_file)

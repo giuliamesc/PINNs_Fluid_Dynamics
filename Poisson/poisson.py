@@ -76,7 +76,7 @@ ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 500)
 # %% Saving Loss History
 
 problem_name = "Poisson"
-history_file = os.path.join(cwd, "{}_history_loss.json".format(problem_name))
+history_file = os.path.join(cwd, "Images\\{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
 ns.utils.plot_history(history_file)
 history = ns.utils.load_json(history_file)
