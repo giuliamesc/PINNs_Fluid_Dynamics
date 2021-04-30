@@ -4,27 +4,22 @@
 import os
 cwd = os.path.abspath(os.getcwd())
 os.chdir("../")
+os.chdir("../")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
 
 #############################################################################
-#  u_x + v_y = 0                                           in \Omega = (0, 1) x (0, 2*delta)
-#  (u * u_x + v * u_y) - (u_xx + u_yy) / Re + p_x = 0      in \Omega = (0, 1) x (0, 2*delta)
-#  (u * v_x + v * v_y) - (v_xx + v_yy) / Re + p_y = 0      in \Omega = (0, 1) x (0, 2*delta)
-#  u   = v   = 0                                           in (0, 1) x {0, 2*delta}
-#  1/ Re * u_x - p = p_end                                 in {1} x (0, 2*delta)
-#  v_x = 0                                                 in {1} x (0, 2*delta)
-#  u = u_exact                                             in {0} x (0, 2*delta)
-#  v = v_exact                                             in {0} x (0, 2*delta)
+#  u_x + v_y = 0                                           in \Omega = (-1, 1) x (-1, 1)
+#  - (u_xx + u_yy) + p_x = 0                               in \Omega = (-1, 1) x (-1, 1)
+#  - (v_xx + v_yy) + p_y = 0                               in \Omega = (-1, 1) x (-1, 1)
+#  u = 20*x*y^3                                            on \partial\Omega
+#  v = 5*x^4-5*y^4                                         on \partial\Omega
 #
-#  p_exact(x,y) = (p_end-p_str)/L * x + p_str
-#  u_exact(x,y) = - Re * p_x * y * (2 - y / delta) * delta / 2
-#  v_exact(x,y) = 0 
-
-# Our attempt is to remove some Boundary Conditions, possibly adding some hint points
-
+#  p_exact(x,y) = 60*x^2*y-20*y^3+const
+#  u_exact(x,y) = 20*x*y^3
+#  v_exact(x,y) = 5*x^4-5*y^4 
 #############################################################################
 
 # %% Options
@@ -33,28 +28,28 @@ dim   = 2
 rho   = 3100  # lava density
 mu    = 890   # lava viscosity
 Ub    = 1     # Bulk velocity
-L_dim = 1     # length of the pipe
-H_dim = 0.1   # heigth of the pipe
+a     = -1    # Lower extremum 
+b     = 1     # Upper extremum
+L_dim = 2     # length of the pipe
+H_dim = 2   # heigth of the pipe
 P_str = 1e6 
 P_end = 0
 
 # Adimensionalization
 Re = rho * Ub * L_dim / mu
-L = 1
+L = 2
 H = H_dim / L_dim
-delta = H / 2
 p_str = P_str / (rho * Ub^2)
 p_end = P_end / (rho * Ub^2)
 
 # %% Forcing and Solutions
-p_x = p_end - p_str
 
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0] 
 
-p_exact   = lambda x: ((p_end-p_str)/L * x[:,0] + p_str) / rho
-u_exact   = lambda x: - Re * p_x * x[:,1] * (2 - x[:,1] / delta) * delta / 2
-v_exact   = lambda x: 0*x[:,0]
+p_exact   = lambda x: (60*x[:,0]*x[:,0]*x[:,1]-20*x[:,1]*x[:,1]*x[:,1])/rho
+u_exact   = lambda x: 20*x[:,0]*x[:,1]*x[:,1]*x[:,1]
+v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1]
  
 # %% Numerical options
 num_PDE  = 200
@@ -75,13 +70,14 @@ model = tf.keras.Sequential([
     tf.keras.layers.Dense(3)
 ])
 
-x_PDE   = tf.random.uniform(shape = [num_PDE,  2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
-x_hint  = tf.random.uniform(shape = [num_hint, 2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
-x_BC_x0 = tf.random.uniform(shape = [num_BC,   2], minval = [0, 0],  maxval = [0, H], dtype = ns.config.get_dtype())
-x_BC_x1 = tf.random.uniform(shape = [num_BC,   2], minval = [L, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
-x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [0, 0],  maxval = [L, 0], dtype = ns.config.get_dtype())
-x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [0, H],  maxval = [L, H], dtype = ns.config.get_dtype())
-x_test  = tf.random.uniform(shape = [num_test, 2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
+x_PDE   = tf.random.uniform(shape = [num_PDE,  2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
+x_hint  = tf.random.uniform(shape = [num_hint, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
+x_BC_x0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [a, b], dtype = ns.config.get_dtype())
+x_BC_x1 = tf.random.uniform(shape = [num_BC,   2], minval = [b, a],  maxval = [b, b], dtype = ns.config.get_dtype())
+x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [b, a], dtype = ns.config.get_dtype())
+x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [a, b],  maxval = [b, b], dtype = ns.config.get_dtype())
+x_test  = tf.random.uniform(shape = [num_test, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
+x_BCD = tf.concat([x_BC_x0, x_BC_x1, x_BC_y0, x_BC_y1], axis = 0)
 
 # %% Losses creation
 
@@ -114,28 +110,16 @@ def PDE_MOM(x, k, force):
         p = u_vect[:,2]
         u_eq = u_vect[:,k]
         
-        grad_eq = operator.gradient_scalar(tape, u_eq, x)
         dp   = operator.gradient_scalar(tape, p, x)[:,k] * rho
-        deqx = grad_eq[:,0]
-        deqy = grad_eq[:,1]
         lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
         
         rhs = create_rhs(x, force)
-    return (u * deqx + v * deqy) - (lapl_eq) / Re + dp - rhs
+    return - (lapl_eq) + dp - rhs
 
 def BC_D(x, k, g_bc = None):
     uk = model(x)[:,k]
     rhs = create_rhs(x, g_bc)
     return uk - rhs
-
-def BC_N(x, k, j, pr = None):
-    with ns.GradientTape(persistent = True) as tape:
-        tape.watch(x)
-        uk = model(x)[:,k]
-        p = model(x)[:,2] * (k == j) * rho
-        uk_j = operator.gradient_scalar(tape, uk, x)[:,j]
-        rhs = create_rhs(x, pr) * (k == j)
-        return 1/Re * uk_j - p - rhs
 
 def exact_value(x, k, sol = None):
     uk = model(x)[:,k]
@@ -146,22 +130,13 @@ def exact_value(x, k, sol = None):
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)]
-BCD_losses = [ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), weight = 1e2),
-              ns.LossMeanSquares('BCD_x0_v', lambda: BC_D(x_BC_x0,1), weight = 1e2),
-              ns.LossMeanSquares('BCD_y0_u', lambda: BC_D(x_BC_y0,0), weight = 1e0),
-              ns.LossMeanSquares('BCD_y0_v', lambda: BC_D(x_BC_y0,1), weight = 1e0),
-              ns.LossMeanSquares('BCD_y1_u', lambda: BC_D(x_BC_y1,0), weight = 1e0),
-              ns.LossMeanSquares('BCD_y1_v', lambda: BC_D(x_BC_y1,1), weight = 1e0)]
-BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N(x_BC_x1,0,0,p_end), weight = 1e2),
-              ns.LossMeanSquares('BCN_x1_v', lambda: BC_N(x_BC_x1,1,0), weight = 1e2)]
-              #ns.LossMeanSquares('BCN_x0_u', lambda: BC_N(x_BC_x0,0,0,-p_str), weight = 1e0),
-              #ns.LossMeanSquares('BCN_x0_v', lambda: BC_N(x_BC_x0,1,0), weight = 1e0)]
+BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD,0, u_exact), weight = 1e-1),
+              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD,1, v_exact), weight = 1e0)]
 EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1e0),
               ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1e0),
               ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint, 2, p_exact), weight = 1e0)]
 
-#losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
-losses = PDE_losses + EXC_Losses
+losses = PDE_losses + BCD_losses + EXC_Losses
 #losses = BCD_losses + BCN_losses 
 #losses = PDE_losses + BCD_losses + BCN_losses 
 
@@ -177,7 +152,7 @@ ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
 
 # %% Saving Loss History
 
-problem_name = "Poiseuille_no_BCs"
+problem_name = "Colliding_Flows"
 history_file = os.path.join(cwd, "Images\\{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
 ns.utils.plot_history(history_file)

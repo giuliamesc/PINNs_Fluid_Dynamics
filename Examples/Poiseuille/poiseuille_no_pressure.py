@@ -4,6 +4,7 @@
 import os
 cwd = os.path.abspath(os.getcwd())
 os.chdir("../")
+os.chdir("../")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf

@@ -4,6 +4,7 @@
 import os
 cwd = os.path.abspath(os.getcwd())
 os.chdir("../")
+os.chdir("../")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
@@ -22,6 +23,9 @@ import numpy as np
 #  p_exact(x,y) = (p_end-p_str)/L * x + p_str
 #  u_exact(x,y) = - Re * p_x * y * (2 - y / delta) * delta / 2
 #  v_exact(x,y) = 0 
+
+# Our attempt is to remove some Boundary Conditions, possibly adding some hint points
+
 #############################################################################
 
 # %% Options
@@ -157,7 +161,8 @@ EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_ex
               ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1e0),
               ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint, 2, p_exact), weight = 1e0)]
 
-losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
+#losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
+losses = PDE_losses + EXC_Losses
 #losses = BCD_losses + BCN_losses 
 #losses = PDE_losses + BCD_losses + BCN_losses 
 
@@ -173,7 +178,7 @@ ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
 
 # %% Saving Loss History
 
-problem_name = "Poiseuille"
+problem_name = "Poiseuille_no_BCs"
 history_file = os.path.join(cwd, "Images\\{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
 ns.utils.plot_history(history_file)
