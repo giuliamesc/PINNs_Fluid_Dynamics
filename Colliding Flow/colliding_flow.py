@@ -46,7 +46,7 @@ p_end = P_end / (rho * Ub^2)
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0] 
 
-p_exact   = lambda x: 60*x[:,0]*x[:,0]*x[:,1]-20*x[:,1]*x[:,1]*x[:,1]
+p_exact   = lambda x: (60*x[:,0]*x[:,0]*x[:,1]-20*x[:,1]*x[:,1]*x[:,1])/rho
 u_exact   = lambda x: 20*x[:,0]*x[:,1]*x[:,1]*x[:,1]
 v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1]
  
@@ -109,7 +109,7 @@ def PDE_MOM(x, k, force):
         p = u_vect[:,2]
         u_eq = u_vect[:,k]
         
-        dp   = operator.gradient_scalar(tape, p, x)[:,k]
+        dp   = operator.gradient_scalar(tape, p, x)[:,k] * rho
         lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
         
         rhs = create_rhs(x, force)
@@ -129,7 +129,7 @@ def exact_value(x, k, sol = None):
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)]
-BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD,0, u_exact), weight = 1e0),
+BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD,0, u_exact), weight = 1e-1),
               ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD,1, v_exact), weight = 1e0)]
 EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1e0),
               ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1e0),
@@ -147,7 +147,7 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 500)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
 
 # %% Saving Loss History
 
