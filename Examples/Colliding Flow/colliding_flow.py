@@ -174,6 +174,8 @@ ax_1.legend()
 ax_1.set_xlabel('x')
 ax_1.set_ylabel('y')
 ax_1.set_zlabel('velocity u')
+image_file = os.path.join(cwd, "Images\\{}_velocity_u.png".format(problem_name))
+plt.savefig(image_file)
 
 fig_2 = plt.figure(3)
 ax_2 = fig_2.add_subplot(projection='3d')
@@ -183,6 +185,8 @@ ax_2.legend()
 ax_2.set_xlabel('x')
 ax_2.set_ylabel('y')
 ax_2.set_zlabel('velocity v')
+image_file = os.path.join(cwd, "Images\\{}_velocity_v.png".format(problem_name))
+plt.savefig(image_file)
 
 fig_3 = plt.figure(4)
 ax_3 = fig_3.add_subplot(projection='3d')
@@ -192,6 +196,10 @@ ax_3.legend()
 ax_3.set_xlabel('x')
 ax_3.set_ylabel('y')
 ax_3.set_zlabel('pressure')
+image_file = os.path.join(cwd, "Images\\{}_pressure.png".format(problem_name))
+plt.savefig(image_file)
 
 plt.show(block = False)
 print("Reynolds Number -> {}".format(Re))
+
+
