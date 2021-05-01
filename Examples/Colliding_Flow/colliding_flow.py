@@ -119,6 +119,11 @@ def exact_value(x, k, sol = None, norm = 1):
     rhs = create_rhs(x, sol)
     return uk - rhs
 
+def exact_value_diff(x, k, sol = None, norm = 1):
+    uk = model(x)[:,k] * norm
+    uk_mean = np.mean(uk)
+    rhs = create_rhs(x, sol)
+    return uk - rhs - uk_mean
 # %% Training Losses definition
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
@@ -127,7 +132,7 @@ BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD,0, u_exact), weight
               ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD,1, v_exact), weight = 1e0)]
 EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact, vel_max), weight = 1e0),
               ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0),
-              ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint, 2, p_exact, p_max), weight = 1e0)]
+              ns.LossMeanSquares( 'exact_p', lambda: exact_value_diff(x_hint, 2, p_exact, p_max), weight = 1e0)]
 
 #losses = PDE_losses + BCD_losses + EXC_Losses
 losses = BCD_losses + PDE_losses 
@@ -136,7 +141,7 @@ losses = BCD_losses + PDE_losses
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact, vel_max)),
              ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_exact, vel_max)),
-             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_exact, p_max))]
+             ns.LossMeanSquares('p_fit', lambda: exact_value_diff(x_test, 2, p_exact, p_max))]
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
@@ -182,9 +187,11 @@ image_file = os.path.join(cwd, "Images\\{}_velocity_v.png".format(problem_name))
 plt.savefig(image_file)
 
 fig_3 = plt.figure(4)
+p_output = model(x_test)[:,2].numpy()* p_max
+p_zero   = p_output - np.mean(p_output) 
 ax_3 = fig_3.add_subplot(projection='3d')
 ax_3.scatter(x_test[:,0], x_test[:,1], p_test, label = 'exact solution')
-ax_3.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,2].numpy()* p_max, label = 'numerical solution')
+ax_3.scatter(x_test[:,0], x_test[:,1], p_zero, label = 'numerical solution')
 ax_3.legend()
 ax_3.set_xlabel('x')
 ax_3.set_ylabel('y')

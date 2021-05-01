@@ -1,2 +1,2 @@
 .idea
-Images/
+Examples/Colliding_Flow/Images/
