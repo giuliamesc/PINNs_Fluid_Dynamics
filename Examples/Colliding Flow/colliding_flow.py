@@ -25,29 +25,19 @@ import numpy as np
 # %% Options
 # Fluid and Flow Setup
 dim   = 2
-rho   = 3100  # lava density
-mu    = 890   # lava viscosity
-Ub    = 1     # Bulk velocity
 a     = -1    # Lower extremum 
-b     = 1     # Upper extremum
-L_dim = 2     # length of the pipe
-H_dim = 2   # heigth of the pipe
-P_str = 1e6 
-P_end = 0
+b     = +1     # Upper extremum
 
 # Adimensionalization
-Re = rho * Ub * L_dim / mu
+Re = 1
 L = 2
-H = H_dim / L_dim
-p_str = P_str / (rho * Ub^2)
-p_end = P_end / (rho * Ub^2)
 
 # %% Forcing and Solutions
 
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0] 
 
-p_exact   = lambda x: (60*x[:,0]*x[:,0]*x[:,1]-20*x[:,1]*x[:,1]*x[:,1])/rho
+p_exact   = lambda x: (60*x[:,0]*x[:,0]*x[:,1]-20*x[:,1]*x[:,1]*x[:,1])
 u_exact   = lambda x: 20*x[:,0]*x[:,1]*x[:,1]*x[:,1]
 v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1]
  
@@ -79,6 +69,11 @@ x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [a, b],  maxval = [b
 x_test  = tf.random.uniform(shape = [num_test, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
 x_BCD = tf.concat([x_BC_x0, x_BC_x1, x_BC_y0, x_BC_y1], axis = 0)
 
+u_max = np.max(np.abs(u_exact(x_BCD)))
+v_max = np.max(np.abs(v_exact(x_BCD)))
+p_max = np.max(np.abs(p_exact(x_BCD)))
+vel_max = max([u_max, v_max])
+
 # %% Losses creation
 
 def create_rhs(x, force):
@@ -96,7 +91,7 @@ def create_rhs(x, force):
 def PDE_MASS(x):
     with ns.GradientTape(persistent=True) as tape:
         tape.watch(x_PDE)
-        u_vect = model(x_PDE)[:,0:2]
+        u_vect = model(x_PDE)[:,0:2]*vel_max
         div = operator.divergence_vector(tape, u_vect, x_PDE, dim)
     return div
 
@@ -105,24 +100,22 @@ def PDE_MOM(x, k, force):
         tape.watch(x)
         
         u_vect = model(x)
-        u = u_vect[:,0]
-        v = u_vect[:,1]
-        p = u_vect[:,2]
-        u_eq = u_vect[:,k]
+        p = u_vect[:,2] * p_max
+        u_eq = u_vect[:,k] * vel_max
         
-        dp   = operator.gradient_scalar(tape, p, x)[:,k] * rho
+        dp   = operator.gradient_scalar(tape, p, x)[:,k]
         lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
         
         rhs = create_rhs(x, force)
     return - (lapl_eq) + dp - rhs
 
 def BC_D(x, k, g_bc = None):
-    uk = model(x)[:,k]
+    uk = model(x)[:,k] * vel_max
     rhs = create_rhs(x, g_bc)
     return uk - rhs
 
-def exact_value(x, k, sol = None):
-    uk = model(x)[:,k]
+def exact_value(x, k, sol = None, norm = 1):
+    uk = model(x)[:,k] * norm
     rhs = create_rhs(x, sol)
     return uk - rhs
 
@@ -132,18 +125,18 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)]
 BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD,0, u_exact), weight = 1e-1),
               ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD,1, v_exact), weight = 1e0)]
-EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1e0),
-              ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1e0),
-              ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint, 2, p_exact), weight = 1e0)]
+EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact, vel_max), weight = 1e0),
+              ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0),
+              ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint, 2, p_exact, p_max), weight = 1e0)]
 
-losses = PDE_losses + BCD_losses + EXC_Losses
-#losses = BCD_losses + BCN_losses 
+#losses = PDE_losses + BCD_losses + EXC_Losses
+losses = BCD_losses + PDE_losses 
 #losses = PDE_losses + BCD_losses + BCN_losses 
 
 # %% Test Losses definition
-loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)),
-             ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_exact)),
-             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_exact))]
+loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact, vel_max)),
+             ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_exact, vel_max)),
+             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_exact, p_max))]
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
@@ -169,7 +162,7 @@ import matplotlib.pyplot as plt
 fig_1 = plt.figure(2)
 ax_1 = fig_1.add_subplot(projection='3d')
 ax_1.scatter(x_test[:,0], x_test[:,1], u_test, label = 'exact solution')
-ax_1.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,0].numpy(), label = 'numerical solution')
+ax_1.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,0].numpy() * vel_max, label = 'numerical solution')
 ax_1.legend()
 ax_1.set_xlabel('x')
 ax_1.set_ylabel('y')
@@ -180,7 +173,7 @@ plt.savefig(image_file)
 fig_2 = plt.figure(3)
 ax_2 = fig_2.add_subplot(projection='3d')
 ax_2.scatter(x_test[:,0], x_test[:,1], v_test, label = 'exact solution')
-ax_2.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,1].numpy(), label = 'numerical solution')
+ax_2.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,1].numpy() * vel_max, label = 'numerical solution')
 ax_2.legend()
 ax_2.set_xlabel('x')
 ax_2.set_ylabel('y')
@@ -191,7 +184,7 @@ plt.savefig(image_file)
 fig_3 = plt.figure(4)
 ax_3 = fig_3.add_subplot(projection='3d')
 ax_3.scatter(x_test[:,0], x_test[:,1], p_test, label = 'exact solution')
-ax_3.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,2].numpy(), label = 'numerical solution')
+ax_3.scatter(x_test[:,0], x_test[:,1], model(x_test)[:,2].numpy()* p_max, label = 'numerical solution')
 ax_3.legend()
 ax_3.set_xlabel('x')
 ax_3.set_ylabel('y')
