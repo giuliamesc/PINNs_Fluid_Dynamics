@@ -60,7 +60,7 @@ v_exact   = lambda x: 0*x[:,0]
 # %% Numerical options
 num_PDE  = 200
 num_BC   = 20 # points for each edge
-num_hint = 10
+num_hint = 20
 num_test = 1000
 
 # %% Inizialization
@@ -147,8 +147,8 @@ def exact_value(x, k, sol = None):
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)]
-BCD_losses = [ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), weight = 1e2),
-              ns.LossMeanSquares('BCD_x0_v', lambda: BC_D(x_BC_x0,1), weight = 1e2),
+BCD_losses = [#ns.LossMeanSquares('BCD_x0_u', lambda: BC_D(x_BC_x0,0, u_exact), weight = 1e2),
+              #ns.LossMeanSquares('BCD_x0_v', lambda: BC_D(x_BC_x0,1), weight = 1e2),
               ns.LossMeanSquares('BCD_y0_u', lambda: BC_D(x_BC_y0,0), weight = 1e0),
               ns.LossMeanSquares('BCD_y0_v', lambda: BC_D(x_BC_y0,1), weight = 1e0),
               ns.LossMeanSquares('BCD_y1_u', lambda: BC_D(x_BC_y1,0), weight = 1e0),
@@ -162,7 +162,7 @@ EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_ex
               ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint, 2, p_exact), weight = 1e0)]
 
 #losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
-losses = PDE_losses + EXC_Losses
+losses = PDE_losses + BCD_losses + EXC_Losses
 #losses = BCD_losses + BCN_losses 
 #losses = PDE_losses + BCD_losses + BCN_losses 
 
@@ -174,12 +174,12 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1500)
 
 # %% Saving Loss History
 
 problem_name = "Poiseuille_no_BCs"
-history_file = os.path.join(cwd, "Images\\{}_history_loss.json".format(problem_name))
+history_file = os.path.join(cwd, "Images/{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
 ns.utils.plot_history(history_file)
 history = ns.utils.load_json(history_file)
