@@ -44,7 +44,7 @@ v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1
 # %% Numerical options
 num_PDE  = 200
 num_BC   = 20 # points for each edge
-num_hint = 10
+num_hint = 20
 num_test = 1000
 
 # %% Inizialization
@@ -67,7 +67,13 @@ x_BC_x1 = tf.random.uniform(shape = [num_BC,   2], minval = [b, a],  maxval = [b
 x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [b, a], dtype = ns.config.get_dtype())
 x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [a, b],  maxval = [b, b], dtype = ns.config.get_dtype())
 x_test  = tf.random.uniform(shape = [num_test, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
-x_BCD = tf.concat([x_BC_x0, x_BC_x1, x_BC_y0, x_BC_y1], axis = 0)
+
+bound_cond = []
+bound_cond.append(x_BC_x0)
+bound_cond.append(x_BC_x1)
+bound_cond.append(x_BC_y0)
+bound_cond.append(x_BC_y1)
+x_BCD = tf.concat(bound_cond, axis = 0)
 
 u_max = np.max(np.abs(u_exact(x_BCD)))
 v_max = np.max(np.abs(v_exact(x_BCD)))
@@ -121,9 +127,10 @@ def exact_value(x, k, sol = None, norm = 1):
 
 def exact_value_diff(x, k, sol = None, norm = 1):
     uk = model(x)[:,k] * norm
-    uk_mean = np.mean(uk)
+    uk_mean = tf.math.reduce_mean(uk)
     rhs = create_rhs(x, sol)
     return uk - rhs - uk_mean
+
 # %% Training Losses definition
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
@@ -131,22 +138,23 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
 BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD,0, u_exact), weight = 1e-1),
               ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD,1, v_exact), weight = 1e0)]
 EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact, vel_max), weight = 1e0),
-              ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0),
-              ns.LossMeanSquares( 'exact_p', lambda: exact_value_diff(x_hint, 2, p_exact, p_max), weight = 1e0)]
+              ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0),]
 
-#losses = PDE_losses + BCD_losses + EXC_Losses
-losses = BCD_losses + PDE_losses 
-#losses = PDE_losses + BCD_losses + BCN_losses 
+losses = []
+losses += PDE_losses 
+losses += BCD_losses 
+losses += EXC_Losses
 
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact, vel_max)),
              ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_exact, vel_max)),
              ns.LossMeanSquares('p_fit', lambda: exact_value_diff(x_test, 2, p_exact, p_max))]
+
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1001)
 
 # %% Saving Loss History
 
