@@ -80,24 +80,27 @@ v_max = np.max(np.abs(v_exact(x_BCD)))
 p_max = np.max(np.abs(p_exact(x_BCD)))
 vel_max = max([u_max, v_max])
 
-# %% Randome Noise
+# %% Random Noise
 
-def generate_noise(noise, x, sd = 0.0, mn = 0.0):
-    if noise is None:
-        shape = x.shape[0]
-        noise = tf.random.normal([shape], mean=mn, stddev=sd, dtype= ns.config.get_dtype())
+def generate_noise(x, sd = 0.0, mn = 0.0): 
+    shape = x.shape[0]
+    noise = tf.random.normal([shape], mean=mn, stddev=sd, dtype= ns.config.get_dtype())
     return noise
+
+BCD_noise_x = generate_noise(x_BCD, sd = 1e-3)
+BCD_noise_y = generate_noise(x_BCD, sd = 1e-3)
 
 # %% Losses creation
 
-def create_rhs(x, force):
+def create_rhs(x, force, noise = None):
+    samples = x.shape[0]
+    if noise is None:
+        noise = tf.zeros(shape = [samples], dtype = ns.config.get_dtype())
     if force is None:
-        samples = x.shape[0]
-        return tf.zeros(shape = [samples], dtype = ns.config.get_dtype())
+        return tf.zeros(shape = [samples], dtype = ns.config.get_dtype()) + noise
     if type(force) == float:
-        samples = x.shape[0]
-        return tf.zeros(shape = [samples], dtype = ns.config.get_dtype()) + force
-    return force(x)
+        return tf.zeros(shape = [samples], dtype = ns.config.get_dtype()) + force + noise
+    return force(x) + noise
 
 # k is the coordinate of the vectorial equation
 # j is the direction in which the derivative is computed
@@ -123,9 +126,9 @@ def PDE_MOM(x, k, force):
         rhs = create_rhs(x, force)
     return - (lapl_eq) + dp - rhs
 
-def BC_D(x, k, g_bc = None, norm = 1):     
+def BC_D(x, k, g_bc = None, norm = 1, noise = None):     
     uk = model(x)[:,k] * norm
-    rhs = create_rhs(x, g_bc)
+    rhs = create_rhs(x, g_bc, noise)
     return uk - rhs
 
 def exact_value(x, k, sol = None, norm = 1):
@@ -143,8 +146,8 @@ def exact_value_diff(x, k, sol = None, norm = 1):
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)]
-BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, u_exact, vel_max), weight = 1e0),
-              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, v_exact, vel_max), weight = 1e0)]
+BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, u_exact, vel_max, BCD_noise_x), weight = 1e0),
+              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, v_exact, vel_max, BCD_noise_y), weight = 1e0)]
 EXC_Losses = [ns.LossMeanSquares('exact_u', lambda: exact_value(x_hint, 0, u_exact, vel_max), weight = 1e0),
               ns.LossMeanSquares('exact_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0),]
 
