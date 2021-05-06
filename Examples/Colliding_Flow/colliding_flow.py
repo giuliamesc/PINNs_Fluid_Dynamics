@@ -42,7 +42,7 @@ u_exact   = lambda x: 20*x[:,0]*x[:,1]*x[:,1]*x[:,1]
 v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1]
  
 # %% Numerical options
-num_PDE  = 200
+num_PDE  = 2000
 num_BC   = 20 # points for each edge
 num_hint = 20
 num_test = 1000
@@ -82,13 +82,18 @@ vel_max = max([u_max, v_max])
 
 # %% Random Noise
 
-def generate_noise(x, sd = 0.0, mn = 0.0): 
+def generate_noise(x, factor = 0, sd = 1.0, mn = 0.0): 
     shape = x.shape[0]
     noise = tf.random.normal([shape], mean=mn, stddev=sd, dtype= ns.config.get_dtype())
-    return noise
+    return noise * factor
 
-BCD_noise_x = generate_noise(x_BCD, sd = 1e-3)
-BCD_noise_y = generate_noise(x_BCD, sd = 1e-3)
+use_noise = True
+if use_noise:
+    BCD_noise_x = generate_noise(x_BCD, factor = 1e-1)
+    BCD_noise_y = generate_noise(x_BCD, factor = 1e-1)
+else:
+    BCD_noise_x = None
+    BCD_noise_y = None
 
 # %% Losses creation
 
