@@ -87,7 +87,7 @@ def generate_noise(x, factor = 0, sd = 1.0, mn = 0.0):
     noise = tf.random.normal([shape], mean=mn, stddev=sd, dtype= ns.config.get_dtype())
     return noise * factor
 
-use_noise = True
+use_noise = False
 if use_noise:
     BCD_noise_x = generate_noise(x_BCD, factor = 1e-1)
     BCD_noise_y = generate_noise(x_BCD, factor = 1e-1)
@@ -131,6 +131,11 @@ def PDE_MOM(x, k, force):
         rhs = create_rhs(x, force)
     return - (lapl_eq) + dp - rhs
 
+def PRESS_0(x):
+    uk = model(x)[:,2] * p_max
+    uk_mean = tf.math.reduce_mean(uk)
+    return uk_mean
+
 def BC_D(x, k, g_bc = None, norm = 1, noise = None):     
     uk = model(x)[:,k] * norm
     rhs = create_rhs(x, g_bc, noise)
@@ -150,11 +155,13 @@ def exact_value_diff(x, k, sol = None, norm = 1):
 # %% Training Losses definition
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
-              ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)]
+              ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2),
+              #ns.LossMeanSquares('PRESS_0',  lambda: PRESS_0(x_PDE), normalization = 1e0, weight = 1e5)
+              ]
 BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, u_exact, vel_max, BCD_noise_x), weight = 1e0),
               ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, v_exact, vel_max, BCD_noise_y), weight = 1e0)]
 EXC_Losses = [ns.LossMeanSquares('exact_u', lambda: exact_value(x_hint, 0, u_exact, vel_max), weight = 1e0),
-              ns.LossMeanSquares('exact_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0),]
+              ns.LossMeanSquares('exact_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0)]
 
 losses = []
 losses += PDE_losses 
@@ -170,7 +177,7 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact,
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1001)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
 
 # %% Saving Loss History
 
@@ -224,6 +231,7 @@ image_file = os.path.join(cwd, "Images\\{}_pressure.png".format(problem_name))
 plt.savefig(image_file)
 
 plt.show(block = False)
+print("Pressure mean ->",np.mean(p_output))
 
 
 
