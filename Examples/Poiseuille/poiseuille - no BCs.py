@@ -61,6 +61,7 @@ v_exact   = lambda x: 0*x[:,0]
 num_PDE  = 200
 num_BC   = 20 # points for each edge
 num_hint = 20
+num_hint_p = 2
 num_test = 1000
 
 # %% Inizialization
@@ -84,6 +85,8 @@ x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [0, 0],  maxval = [L
 x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [0, H],  maxval = [L, H], dtype = ns.config.get_dtype())
 x_test  = tf.random.uniform(shape = [num_test, 2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
 
+#Fewer hints on pressure; they are necessary since we have removed the Neumann BC
+x_hint_p = tf.random.uniform(shape = [num_hint_p, 2], minval = [0, 0],  maxval = [L, H], dtype = ns.config.get_dtype())
 # %% Losses creation
 
 def create_rhs(x, force):
@@ -159,7 +162,10 @@ BCN_losses = [ns.LossMeanSquares('BCN_x1_u', lambda: BC_N(x_BC_x1,0,0,p_end), we
               #ns.LossMeanSquares('BCN_x0_v', lambda: BC_N(x_BC_x0,1,0), weight = 1e0)]
 EXC_Losses = [ns.LossMeanSquares( 'exact_u', lambda: exact_value(x_hint, 0, u_exact), weight = 1e0),
               ns.LossMeanSquares( 'exact_v', lambda: exact_value(x_hint, 1, v_exact), weight = 1e0),
-              ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint, 2, p_exact), weight = 1e0)]
+              ns.LossMeanSquares( 'exact_p', lambda: exact_value(x_hint_p, 2, p_exact), weight = 1e0)]
+              
+
+#We remove boundary conditions at x0 and x1
 
 #losses = PDE_losses + BCD_losses + BCN_losses + EXC_Losses
 losses = PDE_losses + BCD_losses + EXC_Losses
@@ -174,7 +180,7 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact)
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1500)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
 
 # %% Saving Loss History
 

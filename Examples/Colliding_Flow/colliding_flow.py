@@ -42,7 +42,7 @@ u_exact   = lambda x: 20*x[:,0]*x[:,1]*x[:,1]*x[:,1]
 v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1]
  
 # %% Numerical options
-num_PDE  = 2000
+num_PDE  = 100
 num_BC   = 20 # points for each edge
 num_hint = 20
 num_test = 1000
