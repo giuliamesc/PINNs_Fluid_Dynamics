@@ -43,8 +43,8 @@ v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1
  
 # %% Numerical options
 num_PDE  = 50
-num_BC   = 20 # points for each edge
-num_hint = 1
+num_BC   = 20
+num_hint = 4
 num_test = 1000
 
 # %% Inizialization
@@ -117,7 +117,7 @@ def create_rhs(x, force, noise = None):
 def PDE_MASS(x):
     with ns.GradientTape(persistent=True) as tape:
         tape.watch(x_PDE)
-        u_vect = model(x_PDE)[:,0:2]*vel_max
+        u_vect = model(x_PDE)[:,0:2] * vel_max
         div = operator.divergence_vector(tape, u_vect, x_PDE, dim)
     return div
 
@@ -136,41 +136,42 @@ def PDE_MOM(x, k, force):
     return - (lapl_eq) + dp - rhs
 
 def PRESS_0(x):
-    uk = model(x)[:,2] * p_max
-    uk_mean = tf.math.reduce_mean(uk)
+    uk = model(x)[:,2]
+    uk_mean = tf.abs(tf.math.reduce_mean(uk))
     return uk_mean
 
 def BC_D(x, k, g_bc = None, norm = 1, noise = None):     
-    uk = model(x)[:,k] * norm
+    uk = model(x)[:,k]
     rhs = create_rhs(x, g_bc, noise)
-    return uk - rhs
+    return uk - rhs / norm
 
 def exact_value(x, k, sol = None, norm = 1):
-    uk = model(x)[:,k] * norm
+    uk = model(x)[:,k]
     rhs = create_rhs(x, sol)
-    return uk - rhs
+    return uk - rhs / norm
 
-def exact_value_diff(x, k, sol = None, norm = 1):
-    uk = model(x)[:,k] * norm
-    uk_mean = tf.math.reduce_mean(uk)
-    rhs = create_rhs(x, sol)
-    return uk - rhs - uk_mean
+# Deprecated
+# def exact_value_diff(x, k, sol = None, norm = 1):
+#    uk = model(x)[:,k] * norm
+#    uk_mean = tf.math.reduce_mean(uk)
+#    rhs = create_rhs(x, sol)
+#    return uk - rhs - uk_mean
 
 # %% Training Losses definition
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2),
-              ns.LossMeanSquares('PRESS_0',  lambda: PRESS_0(x_montecarlo), normalization = 1e0, weight = 1e-2)
+              ns.Loss('PRESS_0',  lambda: PRESS_0(x_montecarlo), normalization = 1e0, weight = 1e-2, non_negative = True)
               ]
 BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, u_exact, vel_max, BCD_noise_x), weight = 1e0),
               ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, v_exact, vel_max, BCD_noise_y), weight = 1e0)]
-EXC_Losses = [ns.LossMeanSquares('exact_u', lambda: exact_value(x_hint, 0, u_exact, vel_max), weight = 1e0),
-              ns.LossMeanSquares('exact_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0)]
+COL_Losses = [ns.LossMeanSquares('col_u', lambda: exact_value(x_hint, 0, u_exact, vel_max), weight = 1e0),
+              ns.LossMeanSquares('col_v', lambda: exact_value(x_hint, 1, v_exact, vel_max), weight = 1e0)]
 
 losses = []
 losses += PDE_losses 
 losses += BCD_losses 
-#losses += EXC_Losses
+#losses += COL_Losses
 
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact, vel_max)),
@@ -179,9 +180,10 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact,
 
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test)
+#pb.compile(optimizers  = 'scipy')
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 1000)
+ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 2000)
 
 # %% Saving Loss History
 
@@ -223,10 +225,9 @@ plt.savefig(image_file)
 
 fig_3 = plt.figure(4)
 p_output = model(x_test)[:,2].numpy()* p_max
-p_zero   = p_output - np.mean(p_output) 
 ax_3 = fig_3.add_subplot(projection='3d')
 ax_3.scatter(x_test[:,0], x_test[:,1], p_test, label = 'exact solution')
-ax_3.scatter(x_test[:,0], x_test[:,1], p_zero, label = 'numerical solution')
+ax_3.scatter(x_test[:,0], x_test[:,1], p_output, label = 'numerical solution')
 ax_3.legend()
 ax_3.set_xlabel('x')
 ax_3.set_ylabel('y')
@@ -235,7 +236,8 @@ image_file = os.path.join(cwd, "Images\\{}_pressure.png".format(problem_name))
 plt.savefig(image_file)
 
 plt.show(block = False)
-print("Pressure mean ->",np.mean(p_output))
+print("Pressure mean ->", np.mean(p_output))
+print("Noise ->", use_noise)
 
 
 
