@@ -3,6 +3,8 @@ import os
 cwd = os.path.abspath(os.getcwd())
 os.chdir("../")
 os.chdir("../")
+os.chdir("../")
+os.chdir("nisaba")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
@@ -70,7 +72,7 @@ x_BC_x1 = tf.random.uniform(shape = [num_BC,   2], minval = [b, a],  maxval = [b
 x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [b, a], dtype = ns.config.get_dtype())
 x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [a, b],  maxval = [b, b], dtype = ns.config.get_dtype())
 x_test  = tf.random.uniform(shape = [num_test, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
-x_pres = tf.random.normal(  shape = [num_pres, 2], mean = 0.0, stddev = 0.1, dtype = ns.config.get_dtype())
+x_pres  = tf.random.normal( shape = [num_pres, 2], mean = 0.0, stddev = 0.1, dtype = ns.config.get_dtype())
 
 
 # %% Setting Boundary Conditions
@@ -224,7 +226,6 @@ history = ns.utils.load_json(history_file)
 import matplotlib.pyplot as plt
 
 def plot_image(fig_counter, title, exact, numerical):
-    fig_counter += 1
     fig = plt.figure(fig_counter)
     ax = fig.add_subplot(projection='3d')
     ax.scatter(x_test[:,0], x_test[:,1], exact, label = 'exact solution')
