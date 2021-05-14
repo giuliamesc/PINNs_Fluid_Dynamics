@@ -9,6 +9,7 @@ import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 problem_name = "Colliding_Flows"
@@ -55,14 +56,15 @@ v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1
 
 num_PDE  = 50
 num_BC   = 20
-num_col  = 4
+num_col  = 20
 num_test = 1000
 num_pres = 20
 
 # %% Simulation Options
 
-use_noise = False
+use_noise   = True
 collocation = False
+press_mode  = "Mean" # "Collocation", "Mean", "None"
 
 # %% Domain Tensors
 
@@ -73,7 +75,7 @@ x_BC_x1 = tf.random.uniform(shape = [num_BC,   2], minval = [b, a],  maxval = [b
 x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [b, a], dtype = ns.config.get_dtype())
 x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [a, b],  maxval = [b, b], dtype = ns.config.get_dtype())
 x_test  = tf.random.uniform(shape = [num_test, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
-x_pres  = tf.random.normal( shape = [num_pres, 2], mean = 0.0, stddev = 0.1, dtype = ns.config.get_dtype())
+x_pres  = tf.random.uniform(shape = [num_pres, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
 
 
 # %% Setting Boundary Conditions
@@ -186,21 +188,29 @@ def PRESS_0(x):
 
 PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
-              ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2),
-              ns.Loss('PRESS_0',  lambda: PRESS_0(x_pres), normalization = 1e0, weight = 1e-2, non_negative = True)
+              ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
+              
 BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, u_exact, vel_max, BCD_noise_x), weight = 1e0),
               ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, v_exact, vel_max, BCD_noise_y), weight = 1e0)
               ]
-COL_Losses = [ns.LossMeanSquares('col_u', lambda: exact_value(x_col, 0, u_exact, vel_max), weight = 1e0),
-              ns.LossMeanSquares('col_v', lambda: exact_value(x_col, 1, v_exact, vel_max), weight = 1e0)
+COL_Losses = [ns.LossMeanSquares('COL_u', lambda: exact_value(x_col, 0, u_exact, vel_max), weight = 1e0),
+              ns.LossMeanSquares('COL_v', lambda: exact_value(x_col, 1, v_exact, vel_max), weight = 1e0)
               ]
+COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: exact_value(x_pres, 2, p_exact, p_max), weight = 1e0)]
+PRESS_Loss = [ns.Loss('PRESS_0',  lambda: PRESS_0(x_pres), normalization = 1e0, weight = 1e-2, non_negative = True)]
 
 losses = []
 losses += PDE_losses 
 losses += BCD_losses 
+
 if collocation:
-    losses += COL_Lossespip3 
+    losses += COL_Losses
+if press_mode == "Collocation":
+    losses += COL_P_Loss
+if press_mode == "Mean":
+    losses += PRESS_Loss
+    
 
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact, vel_max)),
@@ -212,16 +222,16 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact,
 pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
 history_file = os.path.join(cwd, "Images//LossTrend.png".format(problem_name))
 pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100,gui=False, filename=history_file))
-#pb.compile(optimizers  = 'scipy')
+
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
 ns.minimize(pb, 'scipy', 'BFGS', num_epochs = 5000)
 
-#direct print loss
-pb.callbacks[0].finalize(pb, block = False)
-
 
 # %% Saving Loss History
+
+#direct print loss
+pb.callbacks[0].finalize(pb, block = False)
 
 history_file = os.path.join(cwd, "Images//{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
@@ -229,8 +239,6 @@ ns.utils.plot_history(history_file)
 history = ns.utils.load_json(history_file)
 
 # %% Post-processing
-
-import matplotlib.pyplot as plt
 
 def plot_image(fig_counter, title, exact, numerical):
     fig = plt.figure(fig_counter)
@@ -241,23 +249,23 @@ def plot_image(fig_counter, title, exact, numerical):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel(title)
-    image_file = os.path.join(cwd, "Images\\{}_{}.png".format(problem_name, title)) #windows
-    #image_file = os.path.join(cwd, "Images//{}_{}.png".format(problem_name, title)) #linux
+    image_file = os.path.join(cwd, "Images//{}_{}.png".format(problem_name, title))
     plt.savefig(image_file)
 
 # Image 1 is "Loss History"
-plot_image(2, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
-plot_image(3, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
-plot_image(4,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
+plot_image(3, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
+plot_image(4, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
+plot_image(5,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
 
 plt.show(block = False)
 
 # %% Final recap
 
 print("\nSIMULATION OPTIONS RECAP...")
-print("\tPressure mean ->", np.mean( model(x_test)[:,2].numpy()))
+print("\tPressure mean -> {:e}".format(np.mean( model(x_test)[:,2].numpy())))
 print("\tData Noise    ->", use_noise)
 print("\tCollocation   ->", collocation)
+print("\tPressure Mode ->", press_mode)
 print("\tDirichlet bc  ->", len(dc_bound_cond), "edges")
 print("\tNeumann   bc  ->", len(ne_bound_cond), "edges")
 
