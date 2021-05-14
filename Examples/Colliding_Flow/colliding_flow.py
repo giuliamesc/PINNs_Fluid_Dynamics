@@ -10,7 +10,7 @@ from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+#from mpl_toolkits.mplot3d import Axes3D
 
 problem_name = "Colliding_Flows"
 
@@ -20,11 +20,11 @@ tf.random.set_seed(1)
 
 # %% Case Study
 #############################################################################
-#  u_x + v_y = 0                                           in \Omega = (-1, 1) x (-1, 1)
-#  - (u_xx + u_yy) + p_x = 0                               in \Omega = (-1, 1) x (-1, 1)
-#  - (v_xx + v_yy) + p_y = 0                               in \Omega = (-1, 1) x (-1, 1)
-#  u = 20*x*y^3                                            on \partial\Omega
-#  v = 5*x^4-5*y^4                                         on \partial\Omega
+#  u_x + v_y = 0                                in \Omega = (-1, 1) x (-1, 1)
+#  - (u_xx + u_yy) + p_x = 0                    in \Omega = (-1, 1) x (-1, 1)
+#  - (v_xx + v_yy) + p_y = 0                    in \Omega = (-1, 1) x (-1, 1)
+#  u = 20*x*y^3                                 on \partial\Omega
+#  v = 5*x^4-5*y^4                              on \partial\Omega
 #
 #  p_exact(x,y) = 60*x^2*y-20*y^3+const
 #  u_exact(x,y) = 20*x*y^3
@@ -34,7 +34,7 @@ tf.random.set_seed(1)
 # %% Physical Options
 
 # Fluid and Flow Setup
-dim   = 2     # set 2D or 3D for operators
+dim   =  2    # set 2D or 3D for operators
 a     = -1    # Lower extremum 
 b     = +1    # Upper extremum
 
@@ -220,23 +220,15 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact,
 
 # %% Training
 pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
-history_file = os.path.join(cwd, "Images//LossTrend.png".format(problem_name))
-pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100,gui=False, filename=history_file))
 
+history_file = os.path.join(cwd, "Images//{}_LossTrend.png".format(problem_name))
+pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False, filename=history_file))
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
 ns.minimize(pb, 'scipy', 'BFGS', num_epochs = 5000)
 
-
-# %% Saving Loss History
-
-#direct print loss
+# Direct print loss
 pb.callbacks[0].finalize(pb, block = False)
-
-history_file = os.path.join(cwd, "Images//{}_history_loss.json".format(problem_name))
-pb.save_history(history_file)
-ns.utils.plot_history(history_file)
-history = ns.utils.load_json(history_file)
 
 # %% Post-processing
 
@@ -253,9 +245,9 @@ def plot_image(fig_counter, title, exact, numerical):
     plt.savefig(image_file)
 
 # Image 1 is "Loss History"
-plot_image(3, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
-plot_image(4, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
-plot_image(5,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
+plot_image(2, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
+plot_image(3, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
+plot_image(4,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
 
 plt.show(block = False)
 
