@@ -64,7 +64,7 @@ num_pres = 20
 
 use_noise   = True
 collocation = False
-press_mode  = "Mean" # "Collocation", "Mean", "None"
+press_mode  = "Collocation" # "Collocation", "Mean", "None"
 
 # %% Domain Tensors
 
@@ -229,6 +229,7 @@ ns.minimize(pb, 'scipy', 'BFGS', num_epochs = 5000)
 
 # Direct print loss
 pb.callbacks[0].finalize(pb, block = False)
+plt.savefig(history_file)
 
 # %% Post-processing
 
