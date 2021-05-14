@@ -11,6 +11,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 #from mpl_toolkits.mplot3d import Axes3D
+from tensorflow.math import multiply as product
 
 problem_name = "Colliding_Flows"
 
@@ -47,9 +48,9 @@ L = 2
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0] 
 
-p_exact   = lambda x: (60*x[:,0]*x[:,0]*x[:,1]-20*x[:,1]*x[:,1]*x[:,1])
-u_exact   = lambda x: 20*x[:,0]*x[:,1]*x[:,1]*x[:,1]
-v_exact   = lambda x: 5*x[:,0]*x[:,0]*x[:,0]*x[:,0]-5*x[:,1]*x[:,1]*x[:,1]*x[:,1]
+p_exact   = lambda x: 60*product(product(x[:,0],x[:,0]),x[:,1])-20*product(product(x[:,1],x[:,1]),x[:,1])
+u_exact   = lambda x: 20*product(product(x[:,0],x[:,1]),product(x[:,1],x[:,1]))
+v_exact   = lambda x: 5*product(product(x[:,0],x[:,0]),product(x[:,0],x[:,0]))-5*product(product(x[:,1],x[:,1]),product(x[:,1],x[:,1]))
  
 
 # %% Numerical options
