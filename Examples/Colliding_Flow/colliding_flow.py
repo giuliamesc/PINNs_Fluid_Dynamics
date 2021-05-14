@@ -9,6 +9,7 @@ import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 import tensorflow as tf
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 
 problem_name = "Colliding_Flows"
 
@@ -199,7 +200,7 @@ losses = []
 losses += PDE_losses 
 losses += BCD_losses 
 if collocation:
-    losses += COL_Losses
+    losses += COL_Lossespip3 
 
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact, vel_max)),
@@ -208,15 +209,21 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact,
              ]
 
 # %% Training
-pb = ns.OptimizationProblem(model.variables, losses, loss_test)
+pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
+history_file = os.path.join(cwd, "Images//LossTrend.png".format(problem_name))
+pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100,gui=False, filename=history_file))
 #pb.compile(optimizers  = 'scipy')
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'L-BFGS-B', num_epochs = 2000)
+ns.minimize(pb, 'scipy', 'BFGS', num_epochs = 5000)
+
+#direct print loss
+pb.callbacks[0].finalize(pb, block = False)
+
 
 # %% Saving Loss History
 
-history_file = os.path.join(cwd, "Images\\{}_history_loss.json".format(problem_name))
+history_file = os.path.join(cwd, "Images//{}_history_loss.json".format(problem_name))
 pb.save_history(history_file)
 ns.utils.plot_history(history_file)
 history = ns.utils.load_json(history_file)
@@ -234,7 +241,8 @@ def plot_image(fig_counter, title, exact, numerical):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel(title)
-    image_file = os.path.join(cwd, "Images\\{}_{}.png".format(problem_name, title))
+    image_file = os.path.join(cwd, "Images\\{}_{}.png".format(problem_name, title)) #windows
+    #image_file = os.path.join(cwd, "Images//{}_{}.png".format(problem_name, title)) #linux
     plt.savefig(image_file)
 
 # Image 1 is "Loss History"
