@@ -39,19 +39,14 @@ dim   =  2    # set 2D or 3D for operators
 a     = -1    # Lower extremum 
 b     = +1    # Upper extremum
 
-# Adimensionalization
-Re = 1
-L = 2
-
 # %% Exact Solution and Forcing Terms
 
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0] 
 
-p_exact   = lambda x: 60*product(product(x[:,0],x[:,0]),x[:,1])-20*product(product(x[:,1],x[:,1]),x[:,1])
+p_exact   = lambda x: 60*product(product(x[:,0],x[:,0]),x[:,1])                 - 20*product(product(x[:,1],x[:,1]),x[:,1])
 u_exact   = lambda x: 20*product(product(x[:,0],x[:,1]),product(x[:,1],x[:,1]))
-v_exact   = lambda x: 5*product(product(x[:,0],x[:,0]),product(x[:,0],x[:,0]))-5*product(product(x[:,1],x[:,1]),product(x[:,1],x[:,1]))
- 
+v_exact   = lambda x:  5*product(product(x[:,0],x[:,0]),product(x[:,0],x[:,0])) -  5*product(product(x[:,1],x[:,1]),product(x[:,1],x[:,1]))
 
 # %% Numerical options
 
@@ -63,9 +58,10 @@ num_pres = 20
 
 # %% Simulation Options
 
+epochs      = 5000
 use_noise   = True
 collocation = False
-press_mode  = "Collocation" # "Collocation", "Mean", "None"
+press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
 # %% Domain Tensors
 
@@ -226,7 +222,7 @@ history_file = os.path.join(cwd, "Images//{}_LossTrend.png".format(problem_name)
 pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False, filename=history_file))
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'BFGS', num_epochs = 5000)
+ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
 # Direct print loss
 pb.callbacks[0].finalize(pb, block = False)
@@ -256,6 +252,7 @@ plt.show(block = False)
 # %% Final recap
 
 print("\nSIMULATION OPTIONS RECAP...")
+print("\tEpochs        ->", epochs)
 print("\tPressure mean -> {:e}".format(np.mean( model(x_test)[:,2].numpy())))
 print("\tData Noise    ->", use_noise)
 print("\tCollocation   ->", collocation)
