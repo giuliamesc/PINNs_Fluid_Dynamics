@@ -7,6 +7,7 @@ os.chdir("../")
 os.chdir("nisaba")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
+os.chdir(cwd)
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -58,8 +59,8 @@ num_pres = 20
 
 # %% Simulation Options
 
-epochs      = 5000
-use_noise   = True
+epochs      = 200
+use_noise   = False
 collocation = False
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
@@ -216,19 +217,44 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact,
              ]
 
 # %% Training
-pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
 
-history_file = os.path.join(cwd, "Images//{}_LossTrend.png".format(problem_name))
-pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False, filename=history_file))
+loss_image_file = os.path.join(cwd, "Images//{}_LossTrend.png".format(problem_name))
+history_file    = os.path.join(cwd, "Images//{}_history_loss.json".format(problem_name))
+
+pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
+pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False, 
+                                                 filename=loss_image_file,
+                                                 filename_history=history_file))
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
 ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
-# Direct print loss
-pb.callbacks[0].finalize(pb, block = False)
-plt.savefig(history_file)
+# %% Loss Post-processing
+def plot_loss(history, key, value, ax, style, prefix):
+    log_np = np.array(value['log'])
+    weight_prefix = '' if value['weight'] == 1.0 else ' * %1.2e' % value['weight']
+    ax.plot(history['log']['iter'], \
+            value['weight'] * log_np, \
+            style, linewidth = 1.5, \
+            label = '%s%s%s' % (prefix, key, weight_prefix))
+    ax.set_xscale('symlog')
+    ax.set_yscale('log')
 
-# %% Post-processing
+history = ns.utils.load_json(history_file)
+fig = plt.figure(5, figsize = (10, 8))
+ax = fig.add_subplot()
+ax.loglog(history['log']['iter'], history['log']['loss_global'], 'k-', linewidth = 2)
+
+for key, value in history['losses'].items():
+    plot_loss(history, key, value, ax, '-', '')
+for key, value in history['losses_test'].items():
+    plot_loss(history, key, value, ax, '--', '(test) ')
+    ax.legend()
+    ax.grid()
+    ax.set_xlabel('# iterations')
+
+
+# %% Images Post-processing
 
 def plot_image(fig_counter, title, exact, numerical):
     fig = plt.figure(fig_counter)
@@ -243,9 +269,9 @@ def plot_image(fig_counter, title, exact, numerical):
     plt.savefig(image_file)
 
 # Image 1 is "Loss History"
-plot_image(2, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
-plot_image(3, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
-plot_image(4,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
+plot_image(3, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
+plot_image(4, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
+plot_image(5,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
 
 plt.show(block = False)
 
@@ -253,7 +279,7 @@ plt.show(block = False)
 
 print("\nSIMULATION OPTIONS RECAP...")
 print("\tEpochs        ->", epochs)
-print("\tPressure mean -> {:e}".format(np.mean( model(x_test)[:,2].numpy())))
+print("\tPressure mean -> {:e}".format(np.mean(model(x_test)[:,2].numpy())))
 print("\tData Noise    ->", use_noise)
 print("\tCollocation   ->", collocation)
 print("\tPressure Mode ->", press_mode)
