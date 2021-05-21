@@ -59,8 +59,8 @@ num_pres = 20
 
 # %% Simulation Options
 
-epochs      = 200
-use_noise   = False
+epochs      = 2000
+use_noise   = True
 collocation = False
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
@@ -230,28 +230,36 @@ ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epoch
 ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
 # %% Loss Post-processing
-def plot_loss(history, key, value, ax, style, prefix):
-    log_np = np.array(value['log'])
-    weight_prefix = '' if value['weight'] == 1.0 else ' * %1.2e' % value['weight']
+def plot_loss(history, first_key, second_key, ax, style, label = None):
+    value_tot = 0
+    count = 0
+    for key in second_key:
+        count += 1
+        log_np = np.array(history[first_key][key]["log"])
+        value_tot += history[first_key][key]["weight"] * log_np
+    value_tot /= count
     ax.plot(history['log']['iter'], \
-            value['weight'] * log_np, \
+            value_tot, \
             style, linewidth = 1.5, \
-            label = '%s%s%s' % (prefix, key, weight_prefix))
+            label = label)
     ax.set_xscale('symlog')
     ax.set_yscale('log')
 
 history = ns.utils.load_json(history_file)
 fig = plt.figure(5, figsize = (10, 8))
 ax = fig.add_subplot()
-ax.loglog(history['log']['iter'], history['log']['loss_global'], 'k-', linewidth = 2)
+#ax.loglog(history['log']['iter'], history['log']['loss_global'], 'k-', linewidth = 2)
 
-for key, value in history['losses'].items():
-    plot_loss(history, key, value, ax, '-', '')
-for key, value in history['losses_test'].items():
-    plot_loss(history, key, value, ax, '--', '(test) ')
-    ax.legend()
-    ax.grid()
-    ax.set_xlabel('# iterations')
+
+plot_loss(history, "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"], ax, '-', 'Equations_Residuals')
+plot_loss(history, "losses", ["BCD_u", "BCD_v", "COL_p"], ax, '-', 'Boundary_Conditions')
+plot_loss(history, "losses_test", ["u_fit", "v_fit", "p_fit"], ax, '--', 'Test_Loss')
+plt.axvline(100, 0, 1, c = "r")
+plt.axvline(0, 0, 1, c = "r")    
+
+ax.legend(loc = 3, fontsize = 20)
+ax.grid()
+ax.set_xlabel('# iterations')
 
 
 # %% Images Post-processing
@@ -269,9 +277,9 @@ def plot_image(fig_counter, title, exact, numerical):
     plt.savefig(image_file)
 
 # Image 1 is "Loss History"
-plot_image(3, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
-plot_image(4, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
-plot_image(5,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
+plot_image(2, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
+plot_image(3, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
+plot_image(4,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
 
 plt.show(block = False)
 
