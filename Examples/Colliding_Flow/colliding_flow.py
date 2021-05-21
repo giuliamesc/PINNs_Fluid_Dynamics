@@ -230,7 +230,7 @@ ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epoch
 ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
 # %% Loss Post-processing
-def plot_loss(history, first_key, second_key, ax, style, label = None):
+def plot_loss(history, first_key, second_key, ax, style, label):
     value_tot = 0
     count = 0
     for key in second_key:
@@ -250,10 +250,9 @@ fig = plt.figure(5, figsize = (10, 8))
 ax = fig.add_subplot()
 #ax.loglog(history['log']['iter'], history['log']['loss_global'], 'k-', linewidth = 2)
 
-
-plot_loss(history, "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"], ax, '-', 'Equations_Residuals')
-plot_loss(history, "losses", ["BCD_u", "BCD_v", "COL_p"], ax, '-', 'Boundary_Conditions')
-plot_loss(history, "losses_test", ["u_fit", "v_fit", "p_fit"], ax, '--', 'Test_Loss')
+plot_loss(history, "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"], ax, 'b-', 'Equations_Residuals')
+plot_loss(history, "losses", ["BCD_u", "BCD_v", "COL_p"], ax, 'g-', 'Boundary_Conditions')
+plot_loss(history, "losses_test", ["u_fit", "v_fit", "p_fit"], ax, 'm--', 'Test_Loss')
 plt.axvline(100, 0, 1, c = "r")
 plt.axvline(0, 0, 1, c = "r")    
 
@@ -261,6 +260,8 @@ ax.legend(loc = 3, fontsize = 20)
 ax.grid()
 ax.set_xlabel('# iterations')
 
+graph_file = os.path.join(cwd, "Images//{}_LossTrend_simplified.png".format(problem_name))
+plt.savefig(graph_file)
 
 # %% Images Post-processing
 
