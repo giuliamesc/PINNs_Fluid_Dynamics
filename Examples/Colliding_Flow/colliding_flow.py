@@ -60,7 +60,7 @@ num_pres = 20
 # %% Simulation Options
 
 epochs      = 2000
-use_noise   = True
+use_noise   = False
 collocation = False
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
