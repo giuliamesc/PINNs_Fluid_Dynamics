@@ -7,6 +7,7 @@ os.chdir("../")
 os.chdir("nisaba")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
+os.chdir(cwd)
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -39,19 +40,14 @@ dim   =  2    # set 2D or 3D for operators
 a     = -1    # Lower extremum 
 b     = +1    # Upper extremum
 
-# Adimensionalization
-Re = 1
-L = 2
-
 # %% Exact Solution and Forcing Terms
 
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0] 
 
-p_exact   = lambda x: 60*product(product(x[:,0],x[:,0]),x[:,1])-20*product(product(x[:,1],x[:,1]),x[:,1])
+p_exact   = lambda x: 60*product(product(x[:,0],x[:,0]),x[:,1])                 - 20*product(product(x[:,1],x[:,1]),x[:,1])
 u_exact   = lambda x: 20*product(product(x[:,0],x[:,1]),product(x[:,1],x[:,1]))
-v_exact   = lambda x: 5*product(product(x[:,0],x[:,0]),product(x[:,0],x[:,0]))-5*product(product(x[:,1],x[:,1]),product(x[:,1],x[:,1]))
- 
+v_exact   = lambda x:  5*product(product(x[:,0],x[:,0]),product(x[:,0],x[:,0])) -  5*product(product(x[:,1],x[:,1]),product(x[:,1],x[:,1]))
 
 # %% Numerical options
 
@@ -63,9 +59,10 @@ num_pres = 20
 
 # %% Simulation Options
 
-use_noise   = True
+epochs      = 2000
+use_noise   = False
 collocation = False
-press_mode  = "Collocation" # "Collocation", "Mean", "None"
+press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
 # %% Domain Tensors
 
@@ -220,19 +217,53 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact,
              ]
 
 # %% Training
-pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
 
-history_file = os.path.join(cwd, "Images//{}_LossTrend.png".format(problem_name))
-pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False, filename=history_file))
+loss_image_file = os.path.join(cwd, "Images//{}_LossTrend.png".format(problem_name))
+history_file    = os.path.join(cwd, "Images//{}_history_loss.json".format(problem_name))
+
+pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
+pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False, 
+                                                 filename=loss_image_file,
+                                                 filename_history=history_file))
 
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'BFGS', num_epochs = 5000)
+ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
-# Direct print loss
-pb.callbacks[0].finalize(pb, block = False)
-plt.savefig(history_file)
+# %% Loss Post-processing
+def plot_loss(history, first_key, second_key, ax, style, label):
+    value_tot = 0
+    count = 0
+    for key in second_key:
+        count += 1
+        log_np = np.array(history[first_key][key]["log"])
+        value_tot += history[first_key][key]["weight"] * log_np
+    value_tot /= count
+    ax.plot(history['log']['iter'], \
+            value_tot, \
+            style, linewidth = 1.5, \
+            label = label)
+    ax.set_xscale('symlog')
+    ax.set_yscale('log')
 
-# %% Post-processing
+history = ns.utils.load_json(history_file)
+fig = plt.figure(5, figsize = (10, 8))
+ax = fig.add_subplot()
+#ax.loglog(history['log']['iter'], history['log']['loss_global'], 'k-', linewidth = 2)
+
+plot_loss(history, "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"], ax, 'b-', 'Equations_Residuals')
+plot_loss(history, "losses", ["BCD_u", "BCD_v", "COL_p"], ax, 'g-', 'Boundary_Conditions')
+plot_loss(history, "losses_test", ["u_fit", "v_fit", "p_fit"], ax, 'm--', 'Test_Loss')
+plt.axvline(100, 0, 1, c = "r")
+plt.axvline(0, 0, 1, c = "r")    
+
+ax.legend(loc = 3, fontsize = 20)
+ax.grid()
+ax.set_xlabel('# iterations')
+
+graph_file = os.path.join(cwd, "Images//{}_LossTrend_simplified.png".format(problem_name))
+plt.savefig(graph_file)
+
+# %% Images Post-processing
 
 def plot_image(fig_counter, title, exact, numerical):
     fig = plt.figure(fig_counter)
@@ -256,7 +287,8 @@ plt.show(block = False)
 # %% Final recap
 
 print("\nSIMULATION OPTIONS RECAP...")
-print("\tPressure mean -> {:e}".format(np.mean( model(x_test)[:,2].numpy())))
+print("\tEpochs        ->", epochs)
+print("\tPressure mean -> {:e}".format(np.mean(model(x_test)[:,2].numpy())))
 print("\tData Noise    ->", use_noise)
 print("\tCollocation   ->", collocation)
 print("\tPressure Mode ->", press_mode)
