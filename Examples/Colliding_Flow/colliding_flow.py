@@ -266,10 +266,10 @@ plt.savefig(graph_file)
 # %% Images Post-processing
 
 def plot_image(fig_counter, title, exact, numerical):
-    fig = plt.figure(fig_counter)
+    fig = plt.figure(fig_counter, figsize = (10,8))
     ax = fig.add_subplot(projection='3d')
-    ax.scatter(x_test[:,0], x_test[:,1], exact, label = 'exact solution')
-    ax.scatter(x_test[:,0], x_test[:,1], numerical, label = 'numerical solution')
+    ax.scatter(x_test[:,0], x_test[:,1], exact,     label = 'exact solution',     s = 30, c = "#0072BD", zorder = 2)
+    ax.scatter(x_test[:,0], x_test[:,1], numerical, label = 'numerical solution', s = 5,  c = "#A2142F", zorder = 1)
     ax.legend()
     ax.set_xlabel('x')
     ax.set_ylabel('y')
