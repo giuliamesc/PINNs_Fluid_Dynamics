@@ -4,15 +4,16 @@ import numpy as np
 import pandas as pd
 
 #%% Options
-L  = 2.0
-H  = 2.0
-nu = 1e-2
+L  = 1.0
+H  = 1.0
+nu = 1e0
+U  = 500
 
-n1 = 30
-n2 = 30
+n1 = 100
+n2 = 100
 
-formulation = 'stokes'
-# formulation = 'navier-stokes'
+# formulation = 'stokes'
+formulation = 'navier-stokes'
 
 # testcase = 'channel-flow'
 testcase = 'cavity'
@@ -47,7 +48,7 @@ elif testcase == 'cavity':
         return on_boundary and x[1] > H - tol
 
     bcs.append(df.DirichletBC(W.sub(0), df.Constant((0, 0)), noslip_boundary))
-    bcs.append(df.DirichletBC(W.sub(0), df.Constant((1, 0)), top_boundary))
+    bcs.append(df.DirichletBC(W.sub(0), df.Constant((U, 0)), top_boundary))
 
 (v, q) = df.TestFunctions(W)
 (u, p) = df.TrialFunctions(W)
@@ -78,10 +79,10 @@ if formulation == 'navier-stokes':
     solver.solve()
 
 (u, p) = w.split()
-if testcase == 'cavity':
-    # remove mean value
-    p_mean = df.assemble(p*df.dx(mesh)) / df.assemble(df.Constant(1.0)*df.dx(mesh))
-    p.vector().set_local(p.vector().get_local() - p_mean)
+# if testcase == 'cavity':
+#     # remove mean value
+#     p_mean = df.assemble(p*df.dx(mesh)) / df.assemble(df.Constant(1.0)*df.dx(mesh))
+#     p.vector().set_local(p.vector().get_local() - p_mean)
 
 #%% Postprocessing
 output_file = 'data/' + formulation + '_' + testcase + '_steady'
