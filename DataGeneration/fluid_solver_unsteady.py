@@ -3,20 +3,22 @@ import dolfin as df
 import numpy as np
 
 #%% Options
-L  = 10.0
-H  = 2.0
-nu = 1e-3
-T  = 1e1
+L  = 1.0
+H  = 1.0
+nu = 1e0
+T  = 1e-2
+U  = 1
 
-n1 = 50
+n1 = 20
 n2 = 20
 dt = 1e-4
 
-# formulation = 'stokes'
-formulation = 'navier-stokes'
+formulation = 'stokes'
+# formulation = 'navier-stokes_I'
+# formulation = 'navier-stokes_SI'
 
-testcase = 'channel-flow'
-# testcase = 'cavity'
+# testcase = 'channel-flow'
+testcase = 'cavity'
 
 #%% Solver
 mesh = df.RectangleMesh(df.Point(0, 0), df.Point(L, H), n1, n2)
@@ -48,7 +50,7 @@ elif testcase == 'cavity':
         return on_boundary and x[1] > H - tol
 
     bcs.append(df.DirichletBC(W.sub(0), df.Constant((0, 0)), noslip_boundary))
-    bcs.append(df.DirichletBC(W.sub(0), df.Constant((1, 0)), top_boundary))
+    bcs.append(df.DirichletBC(W.sub(0), df.Constant((U, 0)), top_boundary))
 
 (v, q) = df.TestFunctions(W)
 (u, p) = df.TrialFunctions(W)
@@ -89,8 +91,8 @@ for i in range(1, len(times)):
                 + df.inner(f, v)
             )*df.dx
         df.solve(a == rhs, w, bcs)
-    if formulation == 'navier-stokes':
-        print('Navier-Stokes...')
+    elif formulation == 'navier-stokes_I':
+        print('Navier-Stokes (implicit)...')
         NS = (
                 df.inner(u - u_old, v)/df.Constant(dt)
                 + df.Constant(nu)*df.inner(df.grad(u), df.grad(v))
@@ -103,5 +105,19 @@ for i in range(1, len(times)):
         problem  = df.NonlinearVariationalProblem(residual, w, bcs, jacobian)
         solver   = df.NonlinearVariationalSolver(problem)
         solver.solve()
+    elif formulation == 'navier-stokes_SI':
+        print('Navier-Stokes (semi-implicit)...')
+        a = (
+                df.inner(u, v)/df.Constant(dt)
+                + df.Constant(nu)*df.inner(df.grad(u), df.grad(v))
+                + df.inner(df.grad(u)*u_old, v)
+                - df.div(v)*p
+                + q*df.div(u)
+            )*df.dx
+        rhs = (
+                df.inner(u_old, v)/df.Constant(dt)
+                + df.inner(f, v)
+            )*df.dx
+        df.solve(a == rhs, w, bcs)
 
     save_output(w, t, i)
