@@ -142,9 +142,9 @@ else:
 
 def PDE_MASS(x):
     with ns.GradientTape(persistent=True) as tape:
-        tape.watch(x_PDE)
-        u_vect = model(x_PDE)[:,0:2] * vel_max
-        div = operator.divergence_vector(tape, u_vect, x_PDE, dim)
+        tape.watch(x)
+        u_vect = model(x)[:,0:2] * vel_max
+        div = operator.divergence_vector(tape, u_vect, x, dim)
     return div
 
 def PDE_MOM(x, k, force):
