@@ -19,6 +19,12 @@ formulation = 'navier-stokes'
 testcase = 'cavity'
 
 #%% Solver
+
+#Importing my mesh
+#from dolfin import *
+#dolfin-convert my_first_mesh.msh my_first_mesh.xml
+#mesh = Mesh(“my_first_mesh.xml”);
+
 mesh = df.RectangleMesh(df.Point(0, 0), df.Point(L, H), n1, n2)
 
 V = df.VectorElement("CG", mesh.ufl_cell(), 2)
