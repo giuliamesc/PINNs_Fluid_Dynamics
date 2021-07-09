@@ -3,58 +3,60 @@ import os
 cwd = os.path.abspath(os.getcwd())
 os.chdir("../")
 os.chdir("../")
-os.chdir("../")
-os.chdir("nisaba")
+os.chdir("../nisaba")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 os.chdir(cwd)
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import Axes3D
 from tensorflow.math import multiply as product
+import pandas as pd
 
-problem_name = "Colliding_Flows"
+
+problem_name = "Lid Driven Cavity - Steady"
 
 #  Set seeds for reproducibility
 np.random.seed(1)
 tf.random.set_seed(1)
 
+# Reading the CSV file with the numerical solutions
+df = pd.read_csv (r'../../DataGeneration/data/navier-stokes_cavity_steady.csv')
+#print (df)
+
 # %% Case Study
 #############################################################################
-#  u_x + v_y = 0                                in \Omega = (-1, 1) x (-1, 1)
-#  - (u_xx + u_yy) + p_x = 0                    in \Omega = (-1, 1) x (-1, 1)
-#  - (v_xx + v_yy) + p_y = 0                    in \Omega = (-1, 1) x (-1, 1)
-#  u = 20*x*y^3                                 on \partial\Omega
-#  v = 5*x^4-5*y^4                              on \partial\Omega
+#  u_x + v_y = 0                                        in \Omega = (0, 1) x (0, 1)
+#  - (u_xx + u_yy) + u * u_x + v * u_y + p_x = 0        in \Omega = (0, 1) x (0, 1)
+#  - (v_xx + v_yy) + u * v_x + v * v_y + p_y = 0        in \Omega = (0, 1) x (0, 1)
+#  u = v = 0                                            on {0,1} x (0,1), (0,1) x {0}
+#  u = 500                                              on (0,1) x {1}
 #
-#  p_exact(x,y) = 60*x^2*y-20*y^3+const
-#  u_exact(x,y) = 20*x*y^3
-#  v_exact(x,y) = 5*x^4-5*y^4 
 #############################################################################
 
 # %% Physical Options
 
 # Fluid and Flow Setup
 dim   =  2    # set 2D or 3D for operators
-a     = -1    # Lower extremum 
-b     = +1    # Upper extremum
+a     = 0    # Lower extremum 
+b     = 1    # Upper extremum
+U     = 500  # x-velocity on the upper boundary
 
-# %% Exact Solution and Forcing Terms
+# %% Forcing Terms and Extraction of Numerical Solutions
 
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0] 
 
-p_exact   = lambda x: 60*product(product(x[:,0],x[:,0]),x[:,1])                 - 20*product(product(x[:,1],x[:,1]),x[:,1])
-u_exact   = lambda x: 20*product(product(x[:,0],x[:,1]),product(x[:,1],x[:,1]))
-v_exact   = lambda x:  5*product(product(x[:,0],x[:,0]),product(x[:,0],x[:,0])) -  5*product(product(x[:,1],x[:,1]),product(x[:,1],x[:,1]))
+p_num   = pd.DataFrame(df, columns= ['p']).to_numpy()
+u_num   = pd.DataFrame(df, columns= ['ux']).to_numpy()
+v_num   = pd.DataFrame(df, columns= ['uy']).to_numpy()
 
 # %% Numerical options
 
 num_PDE  = 50
 num_BC   = 20
 num_col  = 20
-num_test = 1000
+num_test = 500
 num_pres = 20
 
 # %% Simulation Options
@@ -83,20 +85,13 @@ dc_bound_cond = []
 dc_bound_cond.append(x_BC_x0)
 dc_bound_cond.append(x_BC_x1)
 dc_bound_cond.append(x_BC_y0)
-dc_bound_cond.append(x_BC_y1)
-if dc_bound_cond:
-    x_BCD = tf.concat(dc_bound_cond, axis = 0) 
-
-# Neumann
-ne_bound_cond = []
-if ne_bound_cond:
-    x_BCN = tf.concat(ne_bound_cond, axis = 0) 
+x_BCD = tf.concat(dc_bound_cond, axis = 0) 
 
 # %% Normalization Costants
 
-u_max = np.max(np.abs(u_exact(x_BCD)))
-v_max = np.max(np.abs(v_exact(x_BCD)))
-p_max = np.max(np.abs(p_exact(x_BCD)))
+u_max = np.max(np.abs(u_num))
+v_max = np.max(np.abs(v_num))
+p_max = np.max(np.abs(p_num))
 vel_max = max([u_max, v_max])
 
 # %% Model Creation
@@ -158,20 +153,30 @@ def PDE_MOM(x, k, force):
         dp   = operator.gradient_scalar(tape, p, x)[:,k]
         lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
         
+        dux = operator.gradient_scalar(tape, u_eq, x)[:,0]
+        duy = operator.gradient_scalar(tape, u_eq, x)[:,1]
+        
+        conv = u_vect[:,0] * dux + u_vect[:,1] * duy
+        
         rhs = create_rhs(x, force)
-    return - (lapl_eq) + dp - rhs
+    return - (lapl_eq) + dp + conv - rhs
 
 # %% Boundary Losses creation
 
-def BC_D(x, k, g_bc = None, norm = 1, noise = None):     
+def BC_D1(x, k, norm = 1, noise = None):     
     uk = model(x)[:,k]
-    rhs = create_rhs(x, g_bc, noise)
-    return uk - rhs / norm
+    return uk 
+
+def BC_D2(x, k, U, norm = 1, noise = None):
+    uk = model(x)[:,k]
+    return uk - U/norm
 
 # %% Collocation and Test Losses
 
-def exact_value(x, k, sol = None, norm = 1):
+def col_pressure(x, k, sol = None, norm = 1):
     uk = model(x)[:,k]
+
+    samples = sol[:n]
     rhs = create_rhs(x, sol)
     return uk - rhs / norm
 
@@ -189,14 +194,15 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
               
-BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, u_exact, vel_max, BCD_noise_x), weight = 1e0),
-              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, v_exact, vel_max, BCD_noise_y), weight = 1e0)
+BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D1(x_BCD, 0, vel_max, BCD_noise_x), weight = 1e0),
+              ns.LossMeanSquares('BCD_v', lambda: BC_D1(x_BCD, 1, vel_max, BCD_noise_x), weight = 1e0),
+              ns.LossMeanSquares('BCD_u_up', lambda: BC_D2(x_BC_y1, 1, U, vel_max, BCD_noise_y), weight = 1e0)
               ]
-COL_Losses = [ns.LossMeanSquares('COL_u', lambda: exact_value(x_col, 0, u_exact, vel_max), weight = 1e0),
-              ns.LossMeanSquares('COL_v', lambda: exact_value(x_col, 1, v_exact, vel_max), weight = 1e0)
-              ]
-COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: exact_value(x_pres, 2, p_exact, p_max), weight = 1e0)]
-PRESS_Loss = [ns.Loss('PRESS_0',  lambda: PRESS_0(x_pres), normalization = 1e0, weight = 1e-2, non_negative = True)]
+#COL_Losses = [ns.LossMeanSquares('COL_u', lambda: exact_value(x_col, 0, u_num, vel_max), weight = 1e0),
+#              ns.LossMeanSquares('COL_v', lambda: exact_value(x_col, 1, v_num, vel_max), weight = 1e0)
+#              ]
+COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_pres, 2, p_num, p_max), weight = 1e0)]
+#PRESS_Loss = [ns.Loss('PRESS_0',  lambda: PRESS_0(x_pres), normalization = 1e0, weight = 1e-2, non_negative = True)]
 
 losses = []
 losses += PDE_losses 
@@ -211,9 +217,9 @@ if press_mode == "Mean":
     
 
 # %% Test Losses definition
-loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_exact, vel_max)),
-             ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_exact, vel_max)),
-             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_exact, p_max))
+loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_num, vel_max)),
+             ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_num, vel_max)),
+             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_num, p_max))
              ]
 
 # %% Training
@@ -265,11 +271,15 @@ plt.savefig(graph_file)
 
 # %% Images Post-processing
 
-def plot_image(fig_counter, title, exact, numerical):
-    fig = plt.figure(fig_counter, figsize = (10,8))
+#Points for the numerical solution
+x_num   = pd.DataFrame(df, columns= ['x']).to_numpy()
+y_num   = pd.DataFrame(df, columns= ['y']).to_numpy()
+
+def plot_image(fig_counter, title, exact, numerical, x_n, y_n):
+    fig = plt.figure(fig_counter)
     ax = fig.add_subplot(projection='3d')
-    ax.scatter(x_test[:,0], x_test[:,1], exact,     label = 'exact solution',     s = 30, c = "#0072BD", zorder = 2)
-    ax.scatter(x_test[:,0], x_test[:,1], numerical, label = 'numerical solution', s = 5,  c = "#A2142F", zorder = 1)
+    ax.scatter(x_test[:,0], x_test[:,1], exact, label = 'exact solution')
+    ax.scatter(x_n, y_n, numerical, label = 'numerical solution')
     ax.legend()
     ax.set_xlabel('x')
     ax.set_ylabel('y')
@@ -278,9 +288,9 @@ def plot_image(fig_counter, title, exact, numerical):
     plt.savefig(image_file)
 
 # Image 1 is "Loss History"
-plot_image(2, "velocity_u", u_exact(x_test)[:, None], model(x_test)[:,0].numpy() * vel_max)
-plot_image(3, "velocity_v", v_exact(x_test)[:, None], model(x_test)[:,1].numpy() * vel_max)
-plot_image(4,   "pressure", p_exact(x_test)[:, None], model(x_test)[:,2].numpy() * p_max)
+plot_image(2, "velocity_u", u_num, model(x_test)[:,0].numpy() * vel_max, x_num, y_num)
+plot_image(3, "velocity_v", v_num, model(x_test)[:,1].numpy() * vel_max, x_num, y_num)
+plot_image(4,   "pressure", p_num, model(x_test)[:,2].numpy() * p_max, x_num, y_num)
 
 plt.show(block = False)
 
