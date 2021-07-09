@@ -1,9 +1,7 @@
 # %% Import libraries and working directory settings
 import os
 cwd = os.path.abspath(os.getcwd())
-os.chdir("../")
-os.chdir("../")
-os.chdir("../nisaba")
+os.chdir("../../../nisaba")
 import nisaba as ns
 from nisaba.experimental.physics import tens_style as operator
 os.chdir(cwd)
@@ -22,7 +20,7 @@ tf.random.set_seed(1)
 
 # Reading the CSV file with the numerical solutions
 df = pd.read_csv (r'../../DataGeneration/data/navier-stokes_cavity_steady.csv')
-#print (df)
+print (df)
 
 # %% Case Study
 #############################################################################
