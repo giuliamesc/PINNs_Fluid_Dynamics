@@ -54,30 +54,29 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 
 # %% Numerical options
 
-num_PDE  = 50
-num_BC   = 20
+num_PDE  = 100
+num_BC   = 50
 num_col  = 20
 num_test = 500
 num_pres = 20
 
 # %% Simulation Options
 
-epochs      = 2000
+epochs      = 500
 use_noise   = False
 collocation = False
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
 # %% Domain Tensors
 
-x_PDE   = tf.random.uniform(shape = [num_PDE,  2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
-x_col   = tf.random.uniform(shape = [num_col,  2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
+x_PDE   = tf.convert_to_tensor(x_num[:num_PDE,:])
+x_col   = tf.convert_to_tensor(x_num[num_PDE:num_PDE+num_col,:])
 x_BC_x0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [a, b], dtype = ns.config.get_dtype())
 x_BC_x1 = tf.random.uniform(shape = [num_BC,   2], minval = [b, a],  maxval = [b, b], dtype = ns.config.get_dtype())
 x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [b, a], dtype = ns.config.get_dtype())
 x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [a, b],  maxval = [b, b], dtype = ns.config.get_dtype())
-x_test  = tf.convert_to_tensor(x_num)
-#x_test  = tf.random.uniform(shape = [num_test, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
-x_pres  = tf.random.uniform(shape = [num_pres, 2], minval = [a, a],  maxval = [b, b], dtype = ns.config.get_dtype())
+x_test  = tf.convert_to_tensor(x_num[num_PDE+num_col:num_PDE+num_col+num_test,:])
+x_pres  = tf.convert_to_tensor(x_num[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:])
 
 
 # %% Setting Boundary Conditions
@@ -165,34 +164,27 @@ def PDE_MOM(x, k, force):
 
 # %% Boundary Losses creation
 
-def BC_D1(x, k, norm = 1, noise = None):     
-    uk = model(x)[:,k]
-    return uk 
-
-def BC_D2(x, k, U, norm = 1, noise = None):
+def BC_D(x, k, U, norm = 1, noise = None): 
     uk = model(x)[:,k]
     return uk - U/norm
 
 # %% Collocation and Test Losses
 
 def col_pressure(x, sol, norm = 1):
-    x_col = x[:num_pres,:]
-    x_col = tf.convert_to_tensor(x_col)
     p = model(x_col)[:,2]
-    samples = sol[:num_pres]
+    samples = sol[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:]
     return p - samples / norm
+
+def col_velocity(x, k, sol, norm = 1):
+    u = model(x_col)[:,k]
+    samples = sol[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:]
+    return u - samples / norm
 
 # %% Other Losses
 
-def PRESS_0(x):
-    uk = model(x)[:,2]
-    uk_mean = tf.abs(tf.math.reduce_mean(uk))
-    return uk_mean
-
 def exact_value(x, k, sol = None, norm = 1):
-    x = tf.convert_to_tensor(x)
     uk = model(x)[:,k]
-    rhs = tf.convert_to_tensor(sol)
+    rhs = tf.convert_to_tensor(sol[num_PDE+num_col:num_PDE+num_col+num_test,:])
     return uk - rhs / norm
 
 # %% Training Losses definition
@@ -202,14 +194,15 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
               
-BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D1(x_BCD, 0, vel_max, BCD_noise_x), weight = 1e0),
-              ns.LossMeanSquares('BCD_v', lambda: BC_D1(x_BCD, 1, vel_max, BCD_noise_x), weight = 1e0),
-              ns.LossMeanSquares('BCD_u_up', lambda: BC_D2(x_BC_y1, 1, U, vel_max, BCD_noise_y), weight = 1e0)
+BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
+              ns.LossMeanSquares('BCD_u_up', lambda: BC_D(x_BC_y1, 1, U, vel_max, BCD_noise_x), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v_up', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y), weight = 1e-2)
               ]
-#COL_Losses = [ns.LossMeanSquares('COL_u', lambda: exact_value(x_col, 0, u_num, vel_max), weight = 1e0),
-#              ns.LossMeanSquares('COL_v', lambda: exact_value(x_col, 1, v_num, vel_max), weight = 1e0)
-#              ]
-COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_num, p_num, p_max), weight = 1e0)]
+COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
+              ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
+              ]
+COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_pres, p_num, p_max), weight = 1e0)]
 
 losses = []
 losses += PDE_losses 
@@ -224,9 +217,9 @@ if press_mode == "Mean":
     
 
 # %% Test Losses definition
-loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_num, 0, u_num, vel_max)),
-             ns.LossMeanSquares('v_fit', lambda: exact_value(x_num, 1, v_num, vel_max)),
-             ns.LossMeanSquares('p_fit', lambda: exact_value(x_num, 2, p_num, p_max))
+loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_num, vel_max)),
+             ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_num, vel_max)),
+             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_num, p_max))
              ]
 
 # %% Training
@@ -278,6 +271,7 @@ ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
 # %% Images Post-processing
 
+
 def plot_image(fig_counter, title, exact, numerical, x):
     fig = plt.figure(fig_counter)
     ax = fig.add_subplot(projection='3d')
@@ -291,9 +285,9 @@ def plot_image(fig_counter, title, exact, numerical, x):
     plt.savefig(image_file)
 
 # Image 1 is "Loss History"
-plot_image(2, "velocity_u", u_num, model(x_test)[:,0].numpy() * vel_max, x_num)
-plot_image(3, "velocity_v", v_num, model(x_test)[:,1].numpy() * vel_max, x_num)
-plot_image(4,   "pressure", p_num, model(x_test)[:,2].numpy() * p_max, x_num)
+plot_image(2, "velocity_u", u_num[num_PDE+num_col:num_PDE+num_col+num_test,:], model(x_test)[:,0].numpy() * vel_max, x_test)
+plot_image(3, "velocity_v", v_num[num_PDE+num_col:num_PDE+num_col+num_test,:], model(x_test)[:,1].numpy() * vel_max, x_test)
+plot_image(4,   "pressure", p_num[num_PDE+num_col:num_PDE+num_col+num_test,:], model(x_test)[:,2].numpy() * p_max, x_test)
 
 plt.show(block = False)
 
@@ -306,5 +300,5 @@ print("\tData Noise    ->", use_noise)
 print("\tCollocation   ->", collocation)
 print("\tPressure Mode ->", press_mode)
 print("\tDirichlet bc  ->", len(dc_bound_cond), "edges")
-print("\tNeumann   bc  ->", len(ne_bound_cond), "edges")
+
 

@@ -103,7 +103,7 @@ xdmf_file.write(p, 0)
 
 #%% Export to csv
 
-num_out_points = 100
+num_out_points = 5000
 
 x_points = np.random.rand(num_out_points) * L
 y_points = np.random.rand(num_out_points) * H
