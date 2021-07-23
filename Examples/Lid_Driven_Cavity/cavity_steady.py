@@ -38,7 +38,7 @@ df = pd.read_csv (r'../../DataGeneration/data/navier-stokes_cavity_steady.csv')
 dim   =  2    # set 2D or 3D for operators
 a     = 0    # Lower extremum 
 b     = 1    # Upper extremum
-U     = 500  # x-velocity on the upper boundary
+U     = np.float64(500)  # x-velocity on the upper boundary
 
 # %% Forcing Terms and Extraction of Numerical Solutions
 
@@ -90,9 +90,9 @@ x_BCD = tf.concat(dc_bound_cond, axis = 0)
 
 # %% Normalization Costants
 
-u_max = np.max(np.abs(u_num))
-v_max = np.max(np.abs(v_num))
-p_max = np.max(np.abs(p_num))
+u_max = np.max(u_num)-np.min(u_num)
+v_max = np.max(v_num)-np.min(v_num)
+p_max = np.max(p_num)-np.min(p_num)
 vel_max = max([u_max, v_max])
 
 # %% Model Creation
@@ -118,7 +118,7 @@ def create_rhs(x, force, noise = None):
         noise = tf.zeros(shape = [samples], dtype = ns.config.get_dtype())
     if force is None:
         return tf.zeros(shape = [samples], dtype = ns.config.get_dtype()) + noise
-    if type(force) == float:
+    if type(force) == np.float64:
         return tf.zeros(shape = [samples], dtype = ns.config.get_dtype()) + force + noise
     return force(x) + noise
  
@@ -166,7 +166,8 @@ def PDE_MOM(x, k, force):
 
 def BC_D(x, k, U, norm = 1, noise = None): 
     uk = model(x)[:,k]
-    return uk - U/norm
+    rhs = create_rhs(x, U/norm, noise)
+    return uk - rhs
 
 # %% Collocation and Test Losses
 
