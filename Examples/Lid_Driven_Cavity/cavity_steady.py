@@ -157,17 +157,18 @@ def PDE_MOM(x, k, force):
         dux = operator.gradient_scalar(tape, u_eq, x)[:,0]
         duy = operator.gradient_scalar(tape, u_eq, x)[:,1]
         
-        conv = u_vect[:,0] * dux + u_vect[:,1] * duy
+        conv = tf.math.multiply(u_vect[:,0], dux) + tf.math.multiply(u_vect[:,1], duy)
         
         rhs = create_rhs(x, force)
     return - (lapl_eq) + dp + conv - rhs
 
 # %% Boundary Losses creation
 
-def BC_D(x, k, U, norm = 1, noise = None): 
+def BC_D(x, k, f, norm = 1, noise = None): 
     uk = model(x)[:,k]
-    rhs = create_rhs(x, U/norm, noise)
-    return uk - rhs
+    rhs = create_rhs(x, f, noise)
+    n = create_rhs(x, norm, noise)
+    return uk - tf.math.divide(rhs, n)
 
 # %% Collocation and Test Losses
 
@@ -195,10 +196,10 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
               
-BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
+BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, np.float64(0), vel_max, BCD_noise_x), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, np.float64(0), vel_max, BCD_noise_y), weight = 1e-2),
               ns.LossMeanSquares('BCD_u_up', lambda: BC_D(x_BC_y1, 1, U, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v_up', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y), weight = 1e-2)
+              ns.LossMeanSquares('BCD_v_up', lambda: BC_D(x_BC_y1, 1, np.float64(0), vel_max, BCD_noise_y), weight = 1e-2)
               ]
 COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
               ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
@@ -300,6 +301,6 @@ print("\tPressure mean -> {:e}".format(np.mean(model(x_test)[:,2].numpy())))
 print("\tData Noise    ->", use_noise)
 print("\tCollocation   ->", collocation)
 print("\tPressure Mode ->", press_mode)
-print("\tDirichlet bc  ->", len(dc_bound_cond), "edges")
+#print("\tDirichlet bc  ->", len(dc_bound_cond), "edges")
 
 
