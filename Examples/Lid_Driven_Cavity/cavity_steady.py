@@ -20,7 +20,7 @@ tf.random.set_seed(1)
 
 # Reading the CSV file with the numerical solutions
 df = pd.read_csv (r'../../DataGeneration/data/navier-stokes_cavity_steady.csv')
-#print (df)
+
 
 # %% Case Study
 #############################################################################
@@ -35,10 +35,10 @@ df = pd.read_csv (r'../../DataGeneration/data/navier-stokes_cavity_steady.csv')
 # %% Physical Options
 
 # Fluid and Flow Setup
-dim   =  2    # set 2D or 3D for operators
+dim   = 2    # set 2D or 3D for operators
 a     = 0    # Lower extremum 
 b     = 1    # Upper extremum
-U     = np.float64(500)  # x-velocity on the upper boundary
+U     = 500  # x-velocity on the upper boundary
 
 # %% Forcing Terms and Extraction of Numerical Solutions
 
@@ -116,9 +116,9 @@ def create_rhs(x, force, noise = None):
     samples = x.shape[0]
     if noise is None:
         noise = tf.zeros(shape = [samples], dtype = ns.config.get_dtype())
-    if force is None:
+    if force is None or force == 0:
         return tf.zeros(shape = [samples], dtype = ns.config.get_dtype()) + noise
-    if type(force) == np.float64:
+    if type(force) == np.float64 or type(force) == int:
         return tf.zeros(shape = [samples], dtype = ns.config.get_dtype()) + force + noise
     return force(x) + noise
  
@@ -196,10 +196,10 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
               
-BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, np.float64(0), vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, np.float64(0), vel_max, BCD_noise_y), weight = 1e-2),
+BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
               ns.LossMeanSquares('BCD_u_up', lambda: BC_D(x_BC_y1, 1, U, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v_up', lambda: BC_D(x_BC_y1, 1, np.float64(0), vel_max, BCD_noise_y), weight = 1e-2)
+              ns.LossMeanSquares('BCD_v_up', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y), weight = 1e-2)
               ]
 COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
               ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
