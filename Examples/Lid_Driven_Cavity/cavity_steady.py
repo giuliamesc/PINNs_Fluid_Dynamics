@@ -8,9 +8,7 @@ os.chdir(cwd)
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.math import multiply as product
 import pandas as pd
-
 
 problem_name = "Lid Driven Cavity - Steady"
 
@@ -62,7 +60,7 @@ num_pres = 20
 
 # %% Simulation Options
 
-epochs      = 500
+epochs      = 5000
 use_noise   = False
 collocation = False
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
@@ -86,7 +84,7 @@ dc_bound_cond = []
 dc_bound_cond.append(x_BC_x0)
 dc_bound_cond.append(x_BC_x1)
 dc_bound_cond.append(x_BC_y0)
-x_BCD = tf.concat(dc_bound_cond, axis = 0) 
+x_BCD_0 = tf.concat(dc_bound_cond, axis = 0) 
 
 # %% Normalization Costants
 
@@ -125,8 +123,8 @@ def create_rhs(x, force, noise = None):
 # %% Noise Creation
 
 if use_noise:
-    BCD_noise_x = generate_noise(x_BCD, factor = 1e-1)
-    BCD_noise_y = generate_noise(x_BCD, factor = 1e-1)
+    BCD_noise_x = generate_noise(x_BCD_0, factor = 1e-1)
+    BCD_noise_y = generate_noise(x_BCD_0, factor = 1e-1)
 else:
     BCD_noise_x = None
     BCD_noise_y = None    
@@ -160,6 +158,7 @@ def PDE_MOM(x, k, force):
         conv = tf.math.multiply(u_vect[:,0], dux) + tf.math.multiply(u_vect[:,1], duy)
         
         rhs = create_rhs(x, force)
+        
     return - (lapl_eq) + dp + conv - rhs
 
 # %% Boundary Losses creation
@@ -167,27 +166,30 @@ def PDE_MOM(x, k, force):
 def BC_D(x, k, f, norm = 1, noise = None): 
     uk = model(x)[:,k]
     rhs = create_rhs(x, f, noise)
-    n = create_rhs(x, norm, noise)
-    return uk - tf.math.divide(rhs, n)
+    norm_rhs = rhs/norm
+    return uk - norm_rhs
 
 # %% Collocation and Test Losses
 
 def col_pressure(x, sol, norm = 1):
-    p = model(x_col)[:,2]
+    p = model(x)[:,2]
     samples = sol[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:]
-    return p - samples / norm
+    norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
+    return p - norm_rhs
 
 def col_velocity(x, k, sol, norm = 1):
-    u = model(x_col)[:,k]
+    u = model(x)[:,k]
     samples = sol[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:]
-    return u - samples / norm
+    norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
+    return u - norm_rhs
 
 # %% Other Losses
 
-def exact_value(x, k, sol = None, norm = 1):
+def exact_value(x, k, sol, norm = 1):
     uk = model(x)[:,k]
-    rhs = tf.convert_to_tensor(sol[num_PDE+num_col:num_PDE+num_col+num_test,:])
-    return uk - rhs / norm
+    samples = sol[num_PDE+num_col:num_PDE+num_col+num_test,:]
+    norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
+    return uk - norm_rhs
 
 # %% Training Losses definition
 
@@ -196,8 +198,8 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
               
-BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
+BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD_0, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD_0, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
               ns.LossMeanSquares('BCD_u_up', lambda: BC_D(x_BC_y1, 1, U, vel_max, BCD_noise_x), weight = 1e-2),
               ns.LossMeanSquares('BCD_v_up', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y), weight = 1e-2)
               ]
@@ -214,9 +216,7 @@ if collocation:
     losses += COL_Losses
 if press_mode == "Collocation":
     losses += COL_P_Loss
-if press_mode == "Mean":
-    losses += PRESS_Loss
-    
+
 
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_num, vel_max)),
@@ -273,7 +273,6 @@ ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
 # %% Images Post-processing
 
-
 def plot_image(fig_counter, title, exact, numerical, x):
     fig = plt.figure(fig_counter)
     ax = fig.add_subplot(projection='3d')
@@ -301,6 +300,3 @@ print("\tPressure mean -> {:e}".format(np.mean(model(x_test)[:,2].numpy())))
 print("\tData Noise    ->", use_noise)
 print("\tCollocation   ->", collocation)
 print("\tPressure Mode ->", press_mode)
-#print("\tDirichlet bc  ->", len(dc_bound_cond), "edges")
-
-
