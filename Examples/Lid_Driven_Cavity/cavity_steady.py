@@ -52,17 +52,17 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 
 # %% Numerical options
 
-num_PDE  = 100
+num_PDE  = 1000
 num_BC   = 50
-num_col  = 20
-num_test = 500
-num_pres = 20
+num_col  = 250
+num_test = 100
+num_pres = 250
 
 # %% Simulation Options
 
-epochs      = 5000
+epochs      = 1000
 use_noise   = False
-collocation = False
+collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
 # %% Domain Tensors
@@ -179,7 +179,7 @@ def col_pressure(x, sol, norm = 1):
 
 def col_velocity(x, k, sol, norm = 1):
     u = model(x)[:,k]
-    samples = sol[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:]
+    samples = sol[num_PDE:num_PDE+num_col,:]
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return u - norm_rhs
 
