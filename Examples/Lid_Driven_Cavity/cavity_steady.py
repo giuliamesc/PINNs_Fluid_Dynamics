@@ -54,13 +54,13 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 
 num_PDE  = 1000
 num_BC   = 50
-num_col  = 250
+num_col  = 20
 num_test = 100
-num_pres = 250
+num_pres = 20
 
 # %% Simulation Options
 
-epochs      = 1000
+epochs      = 1500
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
@@ -125,10 +125,13 @@ def create_rhs(x, force, noise = None):
 if use_noise:
     BCD_noise_x = generate_noise(x_BCD_0, factor = 1e-1)
     BCD_noise_y = generate_noise(x_BCD_0, factor = 1e-1)
+    BCD_noise_x_up = generate_noise(x_BC_y1, factor = 1e-1)
+    BCD_noise_y_up = generate_noise(x_BC_y1, factor = 1e-1)
 else:
     BCD_noise_x = None
     BCD_noise_y = None    
- 
+    BCD_noise_x_up = None
+    BCD_noise_y_up = None
 # %% PDE Losses creation
 
 # k is the coordinate of the vectorial equation
@@ -198,10 +201,14 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
               
-BCD_losses = [ns.LossMeanSquares('BCD_u', lambda: BC_D(x_BCD_0, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v', lambda: BC_D(x_BCD_0, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
-              ns.LossMeanSquares('BCD_u_up', lambda: BC_D(x_BC_y1, 1, U, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v_up', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y), weight = 1e-2)
+BCD_losses = [ns.LossMeanSquares('BCD_u_x0', lambda: BC_D(x_BC_x0, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v_x0', lambda: BC_D(x_BC_x0, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
+              ns.LossMeanSquares('BCD_u_x1', lambda: BC_D(x_BC_x1, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v_x1', lambda: BC_D(x_BC_x1, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
+              ns.LossMeanSquares('BCD_u_y0', lambda: BC_D(x_BC_y0, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v_y0', lambda: BC_D(x_BC_y0, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
+              ns.LossMeanSquares('BCD_u_y1', lambda: BC_D(x_BC_y1, 0, U, vel_max, BCD_noise_x_up), weight = 1e-2),
+              ns.LossMeanSquares('BCD_v_y1', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y_up), weight = 1e-2)
               ]
 COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
               ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
