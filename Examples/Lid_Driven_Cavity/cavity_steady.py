@@ -56,11 +56,11 @@ num_PDE  = 1000
 num_BC   = 50
 num_col  = 20
 num_test = 100
-num_pres = 20
+num_pres = 100
 
 # %% Simulation Options
 
-epochs      = 1500
+epochs      = 5000
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
@@ -307,3 +307,33 @@ print("\tPressure mean -> {:e}".format(np.mean(model(x_test)[:,2].numpy())))
 print("\tData Noise    ->", use_noise)
 print("\tCollocation   ->", collocation)
 print("\tPressure Mode ->", press_mode)
+
+
+# %% Countour Plots
+
+grid_x, grid_y = np.meshgrid(np.linspace(a, b , 100), np.linspace(a, b, 100))
+
+
+grid_x_flatten = np.reshape(grid_x, (-1,))
+grid_y_flatten = np.reshape(grid_y, (-1,))
+grid = tf.stack([grid_x_flatten, grid_y_flatten], axis = -1)
+
+
+u = model(grid)[:,0].numpy().reshape(grid_x.shape) * v_max
+v = model(grid)[:,1].numpy().reshape(grid_x.shape) * v_max
+p = model(grid)[:,2].numpy().reshape(grid_x.shape) * p_max
+
+ 
+plt.contourf(grid_x, grid_y, u)
+plt.contourf(grid_x, grid_y, v)
+plt.contourf(grid_x, grid_y, p)
+
+df2 = pd.read_csv (r'../../DataGeneration/data/navier-stokes_cavity_steady_r.csv')
+
+my_p_num   = pd.DataFrame(df2, columns= ['p']).to_numpy().reshape(grid_x.shape)
+my_u_num   = pd.DataFrame(df2, columns= ['ux']).to_numpy().reshape(grid_x.shape)
+my_v_num   = pd.DataFrame(df2, columns= ['uy']).to_numpy().reshape(grid_x.shape)
+
+plt.contourf(grid_x, grid_y, my_u_num)
+plt.contourf(grid_x, grid_y, my_v_num)
+plt.contourf(grid_x, grid_y, my_p_num)
