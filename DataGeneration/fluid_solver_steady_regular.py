@@ -103,15 +103,18 @@ xdmf_file.write(p, 0)
 
 #%% Export to csv
 
-num_out_points = 10000
+num_out_points = 100 #square root of the desired number of points
 
 x_points = np.linspace(0, L , num_out_points)
 y_points = np.linspace(0, H , num_out_points)
-u_points = np.array([u(x,y) for x,y in zip(x_points, y_points)])
-p_points = np.array([p(x,y) for x,y in zip(x_points, y_points)])
+u_points = np.array([u(x,y) for y in y_points for x in x_points])
+p_points = np.array([p(x,y) for y in y_points for x in x_points])
+x_tab = np.array([x for y in y_points for x in x_points])
+y_tab = np.array([y for y in y_points for x in x_points])
 
-data = pd.DataFrame({'x': x_points,
-                     'y': y_points,
+
+data = pd.DataFrame({'x': x_tab,
+                     'y': y_tab,
                      'ux': u_points[:,0],
                      'uy': u_points[:,1],
                      'p' : p_points})
