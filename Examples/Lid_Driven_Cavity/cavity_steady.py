@@ -52,15 +52,15 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 
 # %% Numerical options
 
-num_PDE  = 1000
+num_PDE  = 2000
 num_BC   = 50
-num_col  = 20
-num_test = 100
-num_pres = 100
+num_col  = 500
+num_test = 1000
+num_pres = 500
 
 # %% Simulation Options
 
-epochs      = 5000
+epochs      = 1500
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
@@ -210,14 +210,14 @@ BCD_losses = [ns.LossMeanSquares('BCD_u_x0', lambda: BC_D(x_BC_x0, 0, 0, vel_max
               ns.LossMeanSquares('BCD_u_y1', lambda: BC_D(x_BC_y1, 0, U, vel_max, BCD_noise_x_up), weight = 1e-2),
               ns.LossMeanSquares('BCD_v_y1', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y_up), weight = 1e-2)
               ]
-COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
-              ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
+COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e-3),
+              ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e-3)
               ]
-COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_pres, p_num, p_max), weight = 1e0)]
+COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_pres, p_num, p_max), weight = 1e-4)]
 
 losses = []
 losses += PDE_losses 
-losses += BCD_losses 
+#losses += BCD_losses 
 
 if collocation:
     losses += COL_Losses
@@ -323,10 +323,25 @@ u = model(grid)[:,0].numpy().reshape(grid_x.shape) * v_max
 v = model(grid)[:,1].numpy().reshape(grid_x.shape) * v_max
 p = model(grid)[:,2].numpy().reshape(grid_x.shape) * p_max
 
+fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2)
  
-plt.contourf(grid_x, grid_y, u)
-plt.contourf(grid_x, grid_y, v)
-plt.contourf(grid_x, grid_y, p)
+fig.suptitle('Left: PINN, Right: Numerical')
+
+# SMALL_SIZE = 10
+# MEDIUM_SIZE = 10
+# BIGGER_SIZE = 10
+
+# plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+# plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+# plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+# plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+# plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+# plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+# plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+ax1.contourf(grid_x, grid_y, u)
+ax3.contourf(grid_x, grid_y, v)
+ax5.contourf(grid_x, grid_y, p)
 
 df2 = pd.read_csv (r'../../DataGeneration/data/navier-stokes_cavity_steady_r.csv')
 
@@ -334,6 +349,6 @@ my_p_num   = pd.DataFrame(df2, columns= ['p']).to_numpy().reshape(grid_x.shape)
 my_u_num   = pd.DataFrame(df2, columns= ['ux']).to_numpy().reshape(grid_x.shape)
 my_v_num   = pd.DataFrame(df2, columns= ['uy']).to_numpy().reshape(grid_x.shape)
 
-plt.contourf(grid_x, grid_y, my_u_num)
-plt.contourf(grid_x, grid_y, my_v_num)
-plt.contourf(grid_x, grid_y, my_p_num)
+ax2.contourf(grid_x, grid_y, my_u_num)
+ax4.contourf(grid_x, grid_y, my_v_num)
+ax6.contourf(grid_x, grid_y, my_p_num)
