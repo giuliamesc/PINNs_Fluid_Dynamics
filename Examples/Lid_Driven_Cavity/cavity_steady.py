@@ -52,15 +52,15 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 
 # %% Numerical options
 
-num_PDE  = 2000
+num_PDE  = 500
 num_BC   = 50
-num_col  = 500
+num_col  = 100
 num_test = 1000
-num_pres = 500
+num_pres = 100
 
 # %% Simulation Options
 
-epochs      = 1500
+epochs      = 3000
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
@@ -92,6 +92,9 @@ u_max = np.max(u_num)-np.min(u_num)
 v_max = np.max(v_num)-np.min(v_num)
 p_max = np.max(p_num)-np.min(p_num)
 vel_max = max([u_max, v_max])
+
+# Mean of the pressure 
+p_mean = np.mean(p_num[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:])
 
 # %% Model Creation
 
@@ -194,36 +197,45 @@ def exact_value(x, k, sol, norm = 1):
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return uk - norm_rhs
 
+def PRESS_MEAN(x, p, norm = 1):
+    uk = model(x)[:,2]
+    uk_mean = tf.abs(tf.math.reduce_mean(uk))
+    rhs = create_rhs(x, p/norm)
+    return uk_mean - rhs
+
 # %% Training Losses definition
 
-PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e0),
+PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
               
-BCD_losses = [ns.LossMeanSquares('BCD_u_x0', lambda: BC_D(x_BC_x0, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v_x0', lambda: BC_D(x_BC_x0, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
-              ns.LossMeanSquares('BCD_u_x1', lambda: BC_D(x_BC_x1, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v_x1', lambda: BC_D(x_BC_x1, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
-              ns.LossMeanSquares('BCD_u_y0', lambda: BC_D(x_BC_y0, 0, 0, vel_max, BCD_noise_x), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v_y0', lambda: BC_D(x_BC_y0, 1, 0, vel_max, BCD_noise_y), weight = 1e-2),
-              ns.LossMeanSquares('BCD_u_y1', lambda: BC_D(x_BC_y1, 0, U, vel_max, BCD_noise_x_up), weight = 1e-2),
-              ns.LossMeanSquares('BCD_v_y1', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y_up), weight = 1e-2)
+BCD_losses = [ns.LossMeanSquares('BCD_u_x0', lambda: BC_D(x_BC_x0, 0, 0, vel_max, BCD_noise_x), weight = 1e0),
+              ns.LossMeanSquares('BCD_v_x0', lambda: BC_D(x_BC_x0, 1, 0, vel_max, BCD_noise_y), weight = 1e0),
+              ns.LossMeanSquares('BCD_u_x1', lambda: BC_D(x_BC_x1, 0, 0, vel_max, BCD_noise_x), weight = 1e0),
+              ns.LossMeanSquares('BCD_v_x1', lambda: BC_D(x_BC_x1, 1, 0, vel_max, BCD_noise_y), weight = 1e0),
+              ns.LossMeanSquares('BCD_u_y0', lambda: BC_D(x_BC_y0, 0, 0, vel_max, BCD_noise_x), weight = 1e0),
+              ns.LossMeanSquares('BCD_v_y0', lambda: BC_D(x_BC_y0, 1, 0, vel_max, BCD_noise_y), weight = 1e0),
+              ns.LossMeanSquares('BCD_u_y1', lambda: BC_D(x_BC_y1, 0, U, vel_max, BCD_noise_x_up), weight = 1e0),
+              ns.LossMeanSquares('BCD_v_y1', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y_up), weight = 1e0)
               ]
-COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e-3),
-              ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e-3)
+COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
+              ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
               ]
-COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_pres, p_num, p_max), weight = 1e-4)]
+COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_pres, p_num, p_max), weight = 1e0)]
+
+MEAN_P_Loss = [ns.LossMeanSquares('MEAN_p', lambda: PRESS_MEAN(x_pres, p_mean, p_max), weight = 1e-6)]
 
 losses = []
 losses += PDE_losses 
-#losses += BCD_losses 
+losses += BCD_losses 
 
 if collocation:
     losses += COL_Losses
 if press_mode == "Collocation":
     losses += COL_P_Loss
-
+if press_mode == "Mean":
+    losses += MEAN_P_Loss
 
 # %% Test Losses definition
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_num, vel_max)),
