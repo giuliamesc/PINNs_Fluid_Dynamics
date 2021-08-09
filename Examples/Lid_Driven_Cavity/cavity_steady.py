@@ -52,15 +52,15 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 
 # %% Numerical options
 
-num_PDE  = 500
+num_PDE  = 50
 num_BC   = 50
 num_col  = 100
-num_test = 1000
-num_pres = 100
+num_test = 2500
+num_pres = 250
 
 # %% Simulation Options
 
-epochs      = 3000
+epochs      = 7500
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
@@ -158,14 +158,15 @@ def PDE_MOM(x, k, force):
         dp   = operator.gradient_scalar(tape, p, x)[:,k]
         lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
         
-        dux = operator.gradient_scalar(tape, u_eq, x)[:,0]
-        duy = operator.gradient_scalar(tape, u_eq, x)[:,1]
+        du_x = operator.gradient_scalar(tape, u_eq, x)[:,0]
+        du_y = operator.gradient_scalar(tape, u_eq, x)[:,1]
         
-        conv = tf.math.multiply(u_vect[:,0], dux) + tf.math.multiply(u_vect[:,1], duy)
+        conv1 = tf.math.multiply(u_vect[:,0], du_x)
+        conv2 = tf.math.multiply(u_vect[:,1], du_y)
         
         rhs = create_rhs(x, force)
         
-    return - (lapl_eq) + dp + conv - rhs
+    return - (lapl_eq) + dp + conv1 + conv2 - rhs
 
 # %% Boundary Losses creation
 
