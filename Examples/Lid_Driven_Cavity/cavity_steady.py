@@ -55,8 +55,8 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 num_PDE  = 50
 num_BC   = 50
 num_col  = 100
-num_test = 2500
-num_pres = 250
+num_test = 2000
+num_pres = 200
 
 # %% Simulation Options
 
@@ -161,8 +161,8 @@ def PDE_MOM(x, k, force):
         du_x = operator.gradient_scalar(tape, u_eq, x)[:,0]
         du_y = operator.gradient_scalar(tape, u_eq, x)[:,1]
         
-        conv1 = tf.math.multiply(u_vect[:,0], du_x)
-        conv2 = tf.math.multiply(u_vect[:,1], du_y)
+        conv1 = tf.math.multiply(vel_max * u_vect[:,0], du_x)
+        conv2 = tf.math.multiply(vel_max * u_vect[:,1], du_y)
         
         rhs = create_rhs(x, force)
         
@@ -339,18 +339,6 @@ p = model(grid)[:,2].numpy().reshape(grid_x.shape) * p_max
 fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2)
  
 fig.suptitle('Left: PINN, Right: Numerical')
-
-# SMALL_SIZE = 10
-# MEDIUM_SIZE = 10
-# BIGGER_SIZE = 10
-
-# plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
-# plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
-# plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
-# plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
-# plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
-# plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
-# plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 ax1.contourf(grid_x, grid_y, u)
 ax3.contourf(grid_x, grid_y, v)
