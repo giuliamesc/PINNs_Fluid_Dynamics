@@ -54,9 +54,9 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 
 num_PDE  = 50
 num_BC   = 50
-num_col  = 100
+num_col  = 50
 num_test = 2000
-num_pres = 200
+num_pres = 100
 
 # %% Simulation Options
 
