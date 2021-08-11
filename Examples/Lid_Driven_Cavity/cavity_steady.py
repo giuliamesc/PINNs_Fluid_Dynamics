@@ -46,6 +46,13 @@ num_col  = 50
 num_pres = 100
 num_test = 2000
 
+# %% Simulation Options
+
+epochs      = 5000
+use_noise   = False
+collocation = True
+press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
+
 # %% Forcing Terms and Extraction of Numerical Solutions
 
 forcing_x = lambda x: 0*x[:,0]
@@ -57,13 +64,6 @@ v_num   = pd.DataFrame(df, columns= ['uy']).to_numpy()
 
 #Points for the numerical solution
 x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
-
-# %% Simulation Options
-
-epochs      = 7500
-use_noise   = False
-collocation = True
-press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
 # %% Domain Tensors
 
@@ -98,9 +98,9 @@ p_mean = np.mean(p_num[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pre
 # %% Model Creation
 
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(20, input_shape=(2,), activation=tf.nn.tanh),
-    tf.keras.layers.Dense(20, activation=tf.nn.tanh),
-    tf.keras.layers.Dense(20, activation=tf.nn.tanh),
+    tf.keras.layers.Dense(32, input_shape=(2,), activation=tf.nn.tanh),
+    tf.keras.layers.Dense(32, activation=tf.nn.tanh),
+    tf.keras.layers.Dense(64, activation=tf.nn.tanh),
     tf.keras.layers.Dense(3)
 ])
 
