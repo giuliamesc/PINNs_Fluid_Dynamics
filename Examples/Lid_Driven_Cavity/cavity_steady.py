@@ -11,11 +11,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-problem_name = "Lid Driven Cavity - Steady"
-
 #  Set seeds for reproducibility
 np.random.seed(1)
 tf.random.set_seed(1)
+
+problem_name = "Lid Driven Cavity - Steady"
 
 # Reading the CSV file with the numerical solutions
 mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady.csv'
@@ -38,6 +38,14 @@ a     = 0    # Lower extremum
 b     = 1    # Upper extremum
 U     = 500  # x-velocity on the upper boundary
 
+# %% Numerical options
+
+num_PDE  = 50
+num_BC   = 50
+num_col  = 50
+num_pres = 100
+num_test = 2000
+
 # %% Forcing Terms and Extraction of Numerical Solutions
 
 forcing_x = lambda x: 0*x[:,0]
@@ -49,14 +57,6 @@ v_num   = pd.DataFrame(df, columns= ['uy']).to_numpy()
 
 #Points for the numerical solution
 x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
-
-# %% Numerical options
-
-num_PDE  = 50
-num_BC   = 50
-num_col  = 50
-num_pres = 100
-num_test = 2000
 
 # %% Simulation Options
 
@@ -238,6 +238,7 @@ if press_mode == "Mean":
     losses += MEAN_P_Loss
 
 # %% Test Losses definition
+
 loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_num, vel_max)),
              ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_num, vel_max)),
              ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_num, p_max))
@@ -256,34 +257,18 @@ pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False,
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
 ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
-# %% Countour Plots
+# %% Solutions on Regular Grid
 
-fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,6))
-plt.subplots_adjust(top = 1.4, right = 1)
-ax1.title.set_text('Numerical u-velocity')
-ax2.title.set_text('PINNS u-velocity')
-ax3.title.set_text('Numerical v-velocity')
-ax4.title.set_text('PINNS v-velocity')
-ax5.title.set_text('Numerical Pressure')
-ax6.title.set_text('PINNS Pressure')
-
-regular_mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady_r.csv'
-df2 = pd.read_csv (regular_mesh_file)
-
+# Regular Grid
 grid_x, grid_y = np.meshgrid(np.linspace(a, b , 100), np.linspace(a, b, 100))
 
 # Numerical Solutions
+regular_mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady_r.csv'
+df2 = pd.read_csv (regular_mesh_file)
+
 my_p_num   = pd.DataFrame(df2, columns= ['p']).to_numpy().reshape(grid_x.shape)
 my_u_num   = pd.DataFrame(df2, columns= ['ux']).to_numpy().reshape(grid_x.shape)
 my_v_num   = pd.DataFrame(df2, columns= ['uy']).to_numpy().reshape(grid_x.shape)
-
-# Numerical Plots
-cs1 = ax1.contourf(grid_x, grid_y, my_u_num)
-fig.colorbar(cs1, ax=ax1)
-cs3 = ax3.contourf(grid_x, grid_y, my_v_num)
-fig.colorbar(cs3, ax=ax3)
-cs5 = ax5.contourf(grid_x, grid_y, my_p_num)
-fig.colorbar(cs5, ax=ax5)
 
 # PINN Solutions
 grid_x_flatten = np.reshape(grid_x, (-1,))
@@ -293,6 +278,26 @@ grid = tf.stack([grid_x_flatten, grid_y_flatten], axis = -1)
 u = model(grid)[:,0].numpy().reshape(grid_x.shape) * v_max
 v = model(grid)[:,1].numpy().reshape(grid_x.shape) * v_max
 p = model(grid)[:,2].numpy().reshape(grid_x.shape) * p_max
+
+# %% Countour Plots
+
+# Figure Creation
+fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,6))
+plt.subplots_adjust(top = 1.4, right = 1)
+ax1.title.set_text('Numerical u-velocity')
+ax2.title.set_text('PINNS u-velocity')
+ax3.title.set_text('Numerical v-velocity')
+ax4.title.set_text('PINNS v-velocity')
+ax5.title.set_text('Numerical Pressure')
+ax6.title.set_text('PINNS Pressure')
+
+# Numerical Plots
+cs1 = ax1.contourf(grid_x, grid_y, my_u_num)
+fig.colorbar(cs1, ax=ax1)
+cs3 = ax3.contourf(grid_x, grid_y, my_v_num)
+fig.colorbar(cs3, ax=ax3)
+cs5 = ax5.contourf(grid_x, grid_y, my_p_num)
+fig.colorbar(cs5, ax=ax5)
 
 # PINN Plots
 cs2 = ax2.contourf(grid_x, grid_y, u)
@@ -313,7 +318,7 @@ print("\tPressure points    ->", num_pres)
 print("\tTest points        ->", num_test)
 print("\tPressure mean -> {:e}".format(np.mean(model(x_test)[:,2].numpy())))
 print("\nFENICS FILES RECAP")
-print("\tUnstructured Mesh creation    ->", time.ctime(os.path.getctime(mesh_file)))
 print("\tUnstructured Mesh last change ->", time.ctime(os.path.getmtime(mesh_file)))
-print("\tStructured   Mesh creation    ->", time.ctime(os.path.getctime(regular_mesh_file)))
 print("\tStructured   Mesh last change ->", time.ctime(os.path.getmtime(regular_mesh_file)))
+#print("\tUnstructured Mesh creation    ->", time.ctime(os.path.getctime(mesh_file)))
+#print("\tStructured   Mesh creation    ->", time.ctime(os.path.getctime(regular_mesh_file)))
