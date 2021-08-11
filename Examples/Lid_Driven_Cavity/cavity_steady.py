@@ -11,15 +11,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
+
 #  Set seeds for reproducibility
 np.random.seed(1)
 tf.random.set_seed(1)
 
 problem_name = "Lid Driven Cavity - Steady"
 
-# Reading the CSV file with the numerical solutions
-mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady.csv'
-df = pd.read_csv (mesh_file)
+
+# %% Settings for saving and loading
+
+model_name_load = "5000ep"
+model_name_save = None
+load_mode = True
+save_mode = False
 
 # %% Case Study
 ######################################################################################
@@ -29,6 +34,11 @@ df = pd.read_csv (mesh_file)
 #  u = v = 0                                            on {0,1} x (0,1), (0,1) x {0}
 #  u = 500                                              on (0,1) x {1}
 ######################################################################################
+
+# %% Reading the CSV file with the numerical solutions
+
+mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady.csv'
+df = pd.read_csv (mesh_file)
 
 # %% Physical Options
 
@@ -249,13 +259,34 @@ loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_num, v
 loss_image_file = os.path.join(cwd, "Images//{}_LossTrend.png".format(problem_name))
 history_file    = os.path.join(cwd, "Images//{}_history_loss.json".format(problem_name))
 
-pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
-pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False,
-                                                 filename=loss_image_file,
-                                                 filename_history=history_file))
+if not load_mode:
+    pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
+    pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False,
+                                                     filename=loss_image_file,
+                                                     filename_history=history_file))
+    ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
+    ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
-ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
-ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
+# %% Model Loading
+
+if load_mode and model_name_load is not None:
+    os.chdir("Saved_Model")
+    json_file = open('{}.json'.format(model_name_load), 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    model = tf.keras.models.model_from_json(loaded_model_json)
+    model.load_weights('{}.h5'.format(model_name_load))
+    os.chdir("..")
+
+# %% Model Saving
+
+if save_mode and model_name_save is not None:
+    os.chdir("Saved_Model")
+    model_json = model.to_json()
+    with open('{}.json'.format(model_name_save), "w") as json_file:
+        json_file.write(model_json)
+    model.save_weights('{}.h5'.format(model_name_save))
+    os.chdir("..")
 
 # %% Solutions on Regular Grid
 
