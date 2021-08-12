@@ -297,9 +297,9 @@ grid_x, grid_y = np.meshgrid(np.linspace(a, b , 100), np.linspace(a, b, 100))
 regular_mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady_r.csv'
 df2 = pd.read_csv (regular_mesh_file)
 
-my_p_num   = pd.DataFrame(df2, columns= ['p']).to_numpy().reshape(grid_x.shape)
-my_u_num   = pd.DataFrame(df2, columns= ['ux']).to_numpy().reshape(grid_x.shape)
-my_v_num   = pd.DataFrame(df2, columns= ['uy']).to_numpy().reshape(grid_x.shape)
+my_p_num = pd.DataFrame(df2, columns = [ 'p']).to_numpy().reshape(grid_x.shape)
+my_u_num = pd.DataFrame(df2, columns = ['ux']).to_numpy().reshape(grid_x.shape)
+my_v_num = pd.DataFrame(df2, columns = ['uy']).to_numpy().reshape(grid_x.shape)
 
 # PINN Solutions
 grid_x_flatten = np.reshape(grid_x, (-1,))
@@ -322,20 +322,38 @@ ax4.title.set_text('PINNS v-velocity')
 ax5.title.set_text('Numerical Pressure')
 ax6.title.set_text('PINNS Pressure')
 
+# Contour Levels
+def approx_scale(x, up):
+    factor = np.floor(np.log10(abs(x)))-1
+    if up: x =  np.ceil(x/(np.power(10,factor))/5)
+    else : x = np.floor(x/(np.power(10,factor))/5)
+    return x*5*np.power(10,factor)
+
+num_levels = 11
+lev_u_min = min(np.min(u),np.min(my_u_num))
+lev_u_max = max(np.max(u),np.max(my_u_num))  
+level_u = np.linspace(approx_scale(lev_u_min, False), approx_scale(lev_u_max, True), num_levels)
+lev_v_min = min(np.min(v),np.min(my_v_num))
+lev_v_max = max(np.max(v),np.max(my_v_num))  
+level_v = np.linspace(approx_scale(lev_v_min, False), approx_scale(lev_v_max, True), num_levels)
+lev_p_min = min(np.min(p),np.min(my_p_num))
+lev_p_max = max(np.max(p),np.max(my_p_num))  
+level_p = np.linspace(approx_scale(lev_p_min, False), approx_scale(lev_p_max, True), num_levels)
+
 # Numerical Plots
-cs1 = ax1.contourf(grid_x, grid_y, my_u_num)
+cs1 = ax1.contourf(grid_x, grid_y, my_u_num, levels = level_u)
 fig.colorbar(cs1, ax=ax1)
-cs3 = ax3.contourf(grid_x, grid_y, my_v_num)
+cs3 = ax3.contourf(grid_x, grid_y, my_v_num, levels = level_v)
 fig.colorbar(cs3, ax=ax3)
-cs5 = ax5.contourf(grid_x, grid_y, my_p_num)
+cs5 = ax5.contourf(grid_x, grid_y, my_p_num, levels = level_p)
 fig.colorbar(cs5, ax=ax5)
 
 # PINN Plots
-cs2 = ax2.contourf(grid_x, grid_y, u)
+cs2 = ax2.contourf(grid_x, grid_y, u, levels = level_u)
 fig.colorbar(cs2, ax=ax2)
-cs4 = ax4.contourf(grid_x, grid_y, v)
+cs4 = ax4.contourf(grid_x, grid_y, v, levels = level_v)
 fig.colorbar(cs4, ax=ax4)
-cs6 = ax6.contourf(grid_x, grid_y, p)
+cs6 = ax6.contourf(grid_x, grid_y, p, levels = level_p)
 fig.colorbar(cs6, ax=ax6)
 
 # %% Final recap
