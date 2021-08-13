@@ -13,9 +13,9 @@ n1 = 20
 n2 = 20
 dt = 1e-4
 
-formulation = 'stokes'
-# formulation = 'navier-stokes_I'
-# formulation = 'navier-stokes_SI'
+# formulation = 'stokes'
+#formulation = 'navier-stokes_I'
+formulation = 'navier-stokes_SI'
 
 # testcase = 'channel-flow'
 testcase = 'cavity'
