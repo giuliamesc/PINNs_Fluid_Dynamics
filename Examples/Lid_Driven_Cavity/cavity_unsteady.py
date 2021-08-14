@@ -39,8 +39,18 @@ problem_name = "Lid Driven Cavity - Unsteady"
 
 # %% Reading the CSV file with the numerical solutions
 
-file_name = r'../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_00000.h5.csv'
-f = h5py.File(file_name,'r+')
+file_name = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_00080.h5'
+hf = h5py.File(file_name,'r')
+mesh = hf['Mesh']
+msh = mesh['0']
+mh = msh['mesh']
+geom = mh['geometry']
+x = 
+y =
+
+dset = hf['VisualisationVector']
+u = dset['0']
+p = dset['1']
 
 # %% Physical Options
 
@@ -70,7 +80,7 @@ press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0]
 
-p_num = list(f['p'])
+
 u_num = list(f['u'])
 v_num = list(f['v'])
 
