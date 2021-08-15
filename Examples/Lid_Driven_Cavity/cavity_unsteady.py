@@ -39,18 +39,38 @@ problem_name = "Lid Driven Cavity - Unsteady"
 
 # %% Reading the CSV file with the numerical solutions
 
-file_name = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_00080.h5'
-hf = h5py.File(file_name,'r')
-mesh = hf['Mesh']
-msh = mesh['0']
-mh = msh['mesh']
-geom = mh['geometry']
-x = 
-y =
+count = 0 #number of the time instant
 
-dset = hf['VisualisationVector']
-u = dset['0']
-p = dset['1']
+u = []
+v = []
+p = []
+
+for count in np.arange(100):
+    if count < 10 :
+        file_name = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_0000%s.h5' % count
+    else :
+        file_name = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_000%s.h5' % count
+    
+    hf = h5py.File(file_name,'r')
+    dset = hf['VisualisationVector']
+    vel = dset['0']
+    vel_data = np.zeros((441,3), dtype='<f8')
+    vel.read_direct(vel_data)
+
+    u.append(vel_data[:,0])
+    v.append(vel_data[:,1])
+
+    p_data = dset['1']
+    pp = np.zeros((441,1), dtype='<f8')
+    p_data.read_direct(pp)
+    
+    p.append(pp)
+    
+    count = count + 1
+
+u = np.concatenate(u, axis = 0)
+v = np.concatenate(v, axis = 0)
+p = np.concatenate(p, axis = 0)
 
 # %% Physical Options
 
@@ -58,19 +78,43 @@ p = dset['1']
 dim   = 3    # set 2D or 3D for operators
 a     = 0    # Lower extremum
 b     = 1    # Upper extremum
-U     = 500  # x-velocity on the upper boundary
+U     = 1    # x-velocity on the upper boundary
+T     = 1e-2 # Temporal Horizon
+
+# %% Grid of time and geometry
+
+n1 = 20
+n2 = 20
+
+dt = 1e-4
+
+num_times = int(T/dt)
+
+time_vector = np.linspace(0., T, num_times)
+x = np.linspace(a, b, n1)
+y = np.linspace(a, b, n2)
+
+var = np.zeros(((n1+1)*(n2+1)*num_times, 3), dtype ='float')
+count = 0
+for t in time_vector:
+    for j in y:
+        for i in x:
+            var[count, :] = (t, i, j)
+            count = count + 1    
+
 
 # %% Numerical options
 
 num_PDE  = 50
 num_BC   = 50
+num_BCI  = 50
 num_col  = 50
 num_pres = 100
 num_test = 2000
 
 # %% Simulation Options
 
-epochs      = 5000
+epochs      = 2500
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
@@ -90,15 +134,15 @@ x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
 
 # %% Domain Tensors
 
-x_PDE   = tf.convert_to_tensor(x_num[:num_PDE,:])
-x_col   = tf.convert_to_tensor(x_num[num_PDE:num_PDE+num_col,:])
-x_BC_x0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [a, b], dtype = ns.config.get_dtype())
-x_BC_x1 = tf.random.uniform(shape = [num_BC,   2], minval = [b, a],  maxval = [b, b], dtype = ns.config.get_dtype())
-x_BC_y0 = tf.random.uniform(shape = [num_BC,   2], minval = [a, a],  maxval = [b, a], dtype = ns.config.get_dtype())
-x_BC_y1 = tf.random.uniform(shape = [num_BC,   2], minval = [a, b],  maxval = [b, b], dtype = ns.config.get_dtype())
-x_test  = tf.convert_to_tensor(x_num[num_PDE+num_col:num_PDE+num_col+num_test,:])
-x_pres  = tf.convert_to_tensor(x_num[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:])
-
+#x_PDE   = tf.convert_to_tensor(x_num[:num_PDE,:])
+#x_col   = tf.convert_to_tensor(x_num[num_PDE:num_PDE+num_col,:])
+x_BC_x0 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, a],  maxval = [T, a, b], dtype = ns.config.get_dtype())
+x_BC_x1 = tf.random.uniform(shape = [num_BC,   3], minval = [0, b, a],  maxval = [T, b, b], dtype = ns.config.get_dtype())
+x_BC_y0 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, a],  maxval = [T, b, a], dtype = ns.config.get_dtype())
+x_BC_y1 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, b],  maxval = [T, b, b], dtype = ns.config.get_dtype())
+#x_test  = tf.convert_to_tensor(x_num[num_PDE+num_col:num_PDE+num_col+num_test,:])
+#x_pres  = tf.convert_to_tensor(x_num[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:])
+x_BCI   = tf.random.uniform(shape = [num_BCI,  3], minval = [0, a, a], maxval = [0, b, b], dtype = ns.config.get_dtype())
 # %% Setting Boundary Conditions
 
 # Dirichlet
@@ -166,8 +210,9 @@ def PDE_MASS(x):
     with ns.GradientTape(persistent=True) as tape:
         tape.watch(x)
         u_vect = model(x)[:,0:2] * vel_max
-        div = operator.divergence_vector(tape, u_vect, x, dim)
-    return div
+        du_x = operator.gradient_scalar(tape, u_vect[:,0], x)[:,1]
+        dv_y = operator.gradient_scalar(tape, u_vect[:,1], x)[:,2]
+    return du_x + dv_y
 
 def PDE_MOM(x, k, force):
     with ns.GradientTape(persistent=True) as tape:
@@ -177,22 +222,32 @@ def PDE_MOM(x, k, force):
         p = u_vect[:,2] * p_max
         u_eq = u_vect[:,k] * vel_max
 
-        dp   = operator.gradient_scalar(tape, p, x)[:,k]
-        lapl_eq = operator.laplacian_scalar(tape, u_eq, x, dim)
-
-        du_x = operator.gradient_scalar(tape, u_eq, x)[:,0]
-        du_y = operator.gradient_scalar(tape, u_eq, x)[:,1]
+        dp   = operator.gradient_scalar(tape, p, x)[:,k+1]
+        
+        du_t = operator.gradient_scalar(tape, u_eq, x)[:,0]
+        du_x = operator.gradient_scalar(tape, u_eq, x)[:,1]
+        du_y = operator.gradient_scalar(tape, u_eq, x)[:,2]
+        du_xx = operator.gradient_scalar(tape, du_x, x)[:,1]
+        du_yy = operator.gradient_scalar(tape, du_y, x)[:,2]
 
         conv1 = tf.math.multiply(vel_max * u_vect[:,0], du_x)
         conv2 = tf.math.multiply(vel_max * u_vect[:,1], du_y)
 
         rhs = create_rhs(x, force)
 
-    return - (lapl_eq) + dp + conv1 + conv2 - rhs
+    return du_t - du_xx - du_yy + dp + conv1 + conv2 - rhs
 
 # %% Boundary Losses creation
 
 def BC_D(x, k, f, norm = 1, noise = None):
+    uk = model(x)[:,k]
+    rhs = create_rhs(x, f, noise)
+    norm_rhs = rhs/norm
+    return uk - norm_rhs
+
+# %% Initial Conditions Losses creation
+
+def BC_IN(x, k, f, norm = 1, noise = None):
     uk = model(x)[:,k]
     rhs = create_rhs(x, f, noise)
     norm_rhs = rhs/norm
@@ -242,6 +297,10 @@ BCD_losses = [ns.LossMeanSquares('BCD_u_x0', lambda: BC_D(x_BC_x0, 0, 0, vel_max
               ns.LossMeanSquares('BCD_u_y1', lambda: BC_D(x_BC_y1, 0, U, vel_max, BCD_noise_x_up), weight = 1e0),
               ns.LossMeanSquares('BCD_v_y1', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y_up), weight = 1e0)
               ]
+IN_losses = [ns.LossMeanSquares('BCI_u', lambda: BC_D(x_BCI, 0, 0, vel_max), weight = 1e0),
+             ns.LossMeanSquares('BCI_v', lambda: BC_D(x_BCI, 1, 0, vel_max), weight = 1e0),
+             ns.LossMeanSquares('BCI_p', lambda: BC_D(x_BCI, 2, 0, p_max), weight = 1e0)]
+
 COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
               ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
               ]
