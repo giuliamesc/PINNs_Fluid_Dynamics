@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import h5py 
+from random import seed
+from random import sample
 
 
 #  Set seeds for reproducibility
@@ -37,7 +39,41 @@ problem_name = "Lid Driven Cavity - Unsteady"
 #  u = 500                                              on (0,1) x {1} x (0, T)
 ######################################################################################
 
-# %% Reading the CSV file with the numerical solutions
+
+# %% Physical Options
+
+# Fluid and Flow Setup
+dim   = 3    # set 2D or 3D for operators
+a     = 0    # Lower extremum
+b     = 1    # Upper extremum
+U     = 1    # x-velocity on the upper boundary
+T     = 1e-2 # Temporal Horizon
+
+# %% Grid of time and geometry
+
+n1 = 20
+n2 = 20
+
+n = (n1+1)*(n2+1)
+dt = 1e-4
+
+num_times = int(T/dt)
+
+N = (n1+1)*(n2+1)*num_times
+
+time_vector = np.linspace(0., T, num_times)
+x = np.linspace(a, b, n1)
+y = np.linspace(a, b, n2)
+
+var = np.zeros((N, 3), dtype ='float')
+count = 0
+for t in time_vector:
+    for j in y:
+        for i in x:
+            var[count, :] = (t, i, j)
+            count = count + 1    
+            
+# %% Reading the h5 file with the numerical solutions
 
 count = 0 #number of the time instant
 
@@ -54,60 +90,30 @@ for count in np.arange(100):
     hf = h5py.File(file_name,'r')
     dset = hf['VisualisationVector']
     vel = dset['0']
-    vel_data = np.zeros((441,3), dtype='<f8')
+    vel_data = np.zeros((n,3), dtype='<f8')
     vel.read_direct(vel_data)
 
     u.append(vel_data[:,0])
     v.append(vel_data[:,1])
 
     p_data = dset['1']
-    pp = np.zeros((441,1), dtype='<f8')
+    pp = np.zeros((n,1), dtype='<f8')
     p_data.read_direct(pp)
     
     p.append(pp)
     
     count = count + 1
 
-u = np.concatenate(u, axis = 0)
-v = np.concatenate(v, axis = 0)
-p = np.concatenate(p, axis = 0)
-
-# %% Physical Options
-
-# Fluid and Flow Setup
-dim   = 3    # set 2D or 3D for operators
-a     = 0    # Lower extremum
-b     = 1    # Upper extremum
-U     = 1    # x-velocity on the upper boundary
-T     = 1e-2 # Temporal Horizon
-
-# %% Grid of time and geometry
-
-n1 = 20
-n2 = 20
-
-dt = 1e-4
-
-num_times = int(T/dt)
-
-time_vector = np.linspace(0., T, num_times)
-x = np.linspace(a, b, n1)
-y = np.linspace(a, b, n2)
-
-var = np.zeros(((n1+1)*(n2+1)*num_times, 3), dtype ='float')
-count = 0
-for t in time_vector:
-    for j in y:
-        for i in x:
-            var[count, :] = (t, i, j)
-            count = count + 1    
+u_num = np.concatenate(u, axis = 0)
+v_num = np.concatenate(v, axis = 0)
+p_num = np.concatenate(p, axis = 0)
 
 
 # %% Numerical options
 
 num_PDE  = 50
 num_BC   = 50
-num_BCI  = 50
+num_CI   = 50
 num_col  = 50
 num_pres = 100
 num_test = 2000
@@ -119,30 +125,28 @@ use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
-# %% Forcing Terms and Extraction of Numerical Solutions
+# %% Forcing Terms 
 
 forcing_x = lambda x: 0*x[:,0]
 forcing_y = lambda x: 0*x[:,0]
 
-
-u_num = list(f['u'])
-v_num = list(f['v'])
-
-
-#Points for the numerical solution
-x_num   = pd.DataFrame(df, columns= ['x','y']).to_numpy()
-
 # %% Domain Tensors
 
-#x_PDE   = tf.convert_to_tensor(x_num[:num_PDE,:])
-#x_col   = tf.convert_to_tensor(x_num[num_PDE:num_PDE+num_col,:])
+sequence = [i for i in range(N)]
+
+subset_PDE = sample(sequence, num_PDE)
+x_PDE   = tf.convert_to_tensor(var[subset_PDE,:])
+subset_col = sample(sequence, num_col)
+x_col   = tf.convert_to_tensor(var[subset_PDE,:])
 x_BC_x0 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, a],  maxval = [T, a, b], dtype = ns.config.get_dtype())
 x_BC_x1 = tf.random.uniform(shape = [num_BC,   3], minval = [0, b, a],  maxval = [T, b, b], dtype = ns.config.get_dtype())
 x_BC_y0 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, a],  maxval = [T, b, a], dtype = ns.config.get_dtype())
 x_BC_y1 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, b],  maxval = [T, b, b], dtype = ns.config.get_dtype())
-#x_test  = tf.convert_to_tensor(x_num[num_PDE+num_col:num_PDE+num_col+num_test,:])
-#x_pres  = tf.convert_to_tensor(x_num[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:])
-x_BCI   = tf.random.uniform(shape = [num_BCI,  3], minval = [0, a, a], maxval = [0, b, b], dtype = ns.config.get_dtype())
+subset_test = sample(sequence, num_test)
+X_test  = tf.convert_to_tensor(var[subset_test,:])
+subset_pres = sample(sequence, num_pres)
+x_pres  = tf.convert_to_tensor(var[subset_pres,:])
+x_CI   = tf.random.uniform(shape = [num_CI,  3], minval = [0, a, a], maxval = [0, b, b], dtype = ns.config.get_dtype())
 # %% Setting Boundary Conditions
 
 # Dirichlet
@@ -297,9 +301,9 @@ BCD_losses = [ns.LossMeanSquares('BCD_u_x0', lambda: BC_D(x_BC_x0, 0, 0, vel_max
               ns.LossMeanSquares('BCD_u_y1', lambda: BC_D(x_BC_y1, 0, U, vel_max, BCD_noise_x_up), weight = 1e0),
               ns.LossMeanSquares('BCD_v_y1', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y_up), weight = 1e0)
               ]
-IN_losses = [ns.LossMeanSquares('BCI_u', lambda: BC_D(x_BCI, 0, 0, vel_max), weight = 1e0),
-             ns.LossMeanSquares('BCI_v', lambda: BC_D(x_BCI, 1, 0, vel_max), weight = 1e0),
-             ns.LossMeanSquares('BCI_p', lambda: BC_D(x_BCI, 2, 0, p_max), weight = 1e0)]
+IN_losses = [ns.LossMeanSquares('CI_u', lambda: BC_IN(x_CI, 0, 0, vel_max), weight = 1e0),
+             ns.LossMeanSquares('CI_v', lambda: BC_IN(x_CI, 1, 0, vel_max), weight = 1e0),
+             ns.LossMeanSquares('CI_p', lambda: BC_IN(x_CI, 2, 0, p_max), weight = 1e0)]
 
 COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
               ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
