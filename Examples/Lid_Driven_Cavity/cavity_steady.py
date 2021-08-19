@@ -22,9 +22,9 @@ problem_name = "Lid Driven Cavity - Steady"
 # %% Settings for saving and loading
 
 model_name_load = "5000ep"
-model_name_save = None
-load_mode = True
-save_mode = False
+model_name_save = "10000ep"
+load_mode = False
+save_mode = True
 
 # %% Case Study
 ######################################################################################
@@ -58,7 +58,7 @@ num_test = 2000
 
 # %% Simulation Options
 
-epochs      = 5000
+epochs      = 10000
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
