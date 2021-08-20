@@ -24,19 +24,19 @@ problem_name = "Lid Driven Cavity - Unsteady"
 
 # %% Settings for saving and loading
 
-# model_name_load = "5000ep"
-# model_name_save = None
-# load_mode = True
-# save_mode = False
+model_name_load = None
+model_name_save = None
+load_mode = False
+save_mode = False
 
 # %% Case Study
 ######################################################################################
-#  \Omega = (0, 1) x (0, 1)
+#  \Omega = (0, 1) x (0, 1) T = 1e-2
 #  u_x + v_y = 0                                        in \Omega x (0, T)
 #  u_t - (u_xx + u_yy) + u * u_x + v * u_y + p_x = 0    in \Omega x (0, T)
 #  u_t - (v_xx + v_yy) + u * v_x + v * v_y + p_y = 0    in \Omega x (0, T)
 #  u = v = 0                                            on {0,1} x (0,1) x (0, T), (0,1) x {0} x (0, T)
-#  u = 500                                              on (0,1) x {1} x (0, T)
+#  u = 1                                              on (0,1) x {1} x (0, T)
 ######################################################################################
 
 
@@ -111,12 +111,12 @@ p_num = np.concatenate(p, axis = 0)
 
 # %% Numerical options
 
-num_PDE  = 50
-num_BC   = 50
+num_PDE  = 1000
+num_BC   = 500
 num_CI   = 50
-num_col  = 50
-num_pres = 100
-num_test = 2000
+num_col  = 3000
+num_pres = 1000
+num_test = 5000
 
 # %% Simulation Options
 
@@ -132,21 +132,27 @@ forcing_y = lambda x: 0*x[:,0]
 
 # %% Domain Tensors
 
-sequence = [i for i in range(N)]
+sequence = [i for i in range(N)] 
 
-subset_PDE = sample(sequence, num_PDE)
+subset_PDE = sample(sequence, num_PDE) #extracting a random sample of num_PDE indexes
 x_PDE   = tf.convert_to_tensor(var[subset_PDE,:])
-subset_col = sample(sequence, num_col)
-x_col   = tf.convert_to_tensor(var[subset_PDE,:])
+
+subset_col = sample(sequence, num_col) #extracting a random sample of num_col indexes
+x_col   = tf.convert_to_tensor(var[subset_col,:])
+
 x_BC_x0 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, a],  maxval = [T, a, b], dtype = ns.config.get_dtype())
 x_BC_x1 = tf.random.uniform(shape = [num_BC,   3], minval = [0, b, a],  maxval = [T, b, b], dtype = ns.config.get_dtype())
 x_BC_y0 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, a],  maxval = [T, b, a], dtype = ns.config.get_dtype())
 x_BC_y1 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, b],  maxval = [T, b, b], dtype = ns.config.get_dtype())
-subset_test = sample(sequence, num_test)
-X_test  = tf.convert_to_tensor(var[subset_test,:])
-subset_pres = sample(sequence, num_pres)
+
+subset_test = sample(sequence, num_test) #extracting a random sample of num_test indexes
+x_test  = tf.convert_to_tensor(var[subset_test,:])
+
+subset_pres = sample(sequence, num_pres) #extracting a random sample of num_pres indexes
 x_pres  = tf.convert_to_tensor(var[subset_pres,:])
+
 x_CI   = tf.random.uniform(shape = [num_CI,  3], minval = [0, a, a], maxval = [0, b, b], dtype = ns.config.get_dtype())
+
 # %% Setting Boundary Conditions
 
 # Dirichlet
@@ -163,15 +169,12 @@ v_max = np.max(v_num)-np.min(v_num)
 p_max = np.max(p_num)-np.min(p_num)
 vel_max = max([u_max, v_max])
 
-# Mean of the pressure
-p_mean = np.mean(p_num[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:])
-
 # %% Model Creation
 
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(32, input_shape=(2,), activation=tf.nn.tanh),
-    tf.keras.layers.Dense(32, activation=tf.nn.tanh),
-    tf.keras.layers.Dense(64, activation=tf.nn.tanh),
+    tf.keras.layers.Dense(20, input_shape=(3,), activation=tf.nn.tanh),
+    tf.keras.layers.Dense(20, activation=tf.nn.tanh),
+    tf.keras.layers.Dense(20, activation=tf.nn.tanh),
     tf.keras.layers.Dense(3)
 ])
 
@@ -261,13 +264,13 @@ def BC_IN(x, k, f, norm = 1, noise = None):
 
 def col_pressure(x, sol, norm = 1):
     p = model(x)[:,2]
-    samples = sol[num_PDE+num_col+num_test:num_PDE+num_col+num_test+num_pres,:]
+    samples = sol[subset_pres]
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return p - norm_rhs
 
 def col_velocity(x, k, sol, norm = 1):
     u = model(x)[:,k]
-    samples = sol[num_PDE:num_PDE+num_col,:]
+    samples = sol[subset_col]
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return u - norm_rhs
 
@@ -275,15 +278,15 @@ def col_velocity(x, k, sol, norm = 1):
 
 def exact_value(x, k, sol, norm = 1):
     uk = model(x)[:,k]
-    samples = sol[num_PDE+num_col:num_PDE+num_col+num_test,:]
+    samples = sol[subset_test]
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return uk - norm_rhs
 
-def PRESS_MEAN(x, p, norm = 1):
-    uk = model(x)[:,2]
-    uk_mean = tf.abs(tf.math.reduce_mean(uk))
-    rhs = create_rhs(x, p/norm)
-    return uk_mean - rhs
+# def PRESS_MEAN(x, p, norm = 1):
+#     uk = model(x)[:,2]
+#     uk_mean = tf.abs(tf.math.reduce_mean(uk))
+#     rhs = create_rhs(x, p/norm)
+#     return uk_mean - rhs
 
 # %% Training Losses definition
 
@@ -308,13 +311,14 @@ IN_losses = [ns.LossMeanSquares('CI_u', lambda: BC_IN(x_CI, 0, 0, vel_max), weig
 COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
               ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
               ]
+
 COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_pres, p_num, p_max), weight = 1e0)]
 
-MEAN_P_Loss = [ns.LossMeanSquares('MEAN_p', lambda: PRESS_MEAN(x_pres, p_mean, p_max), weight = 1e-6)]
+# MEAN_P_Loss = [ns.LossMeanSquares('MEAN_p', lambda: PRESS_MEAN(x_pres, p_mean, p_max), weight = 1e-6)]
 
 losses = []
-losses += PDE_losses
-losses += BCD_losses
+# losses += PDE_losses
+# losses += BCD_losses
 
 if collocation:
     losses += COL_Losses
@@ -438,6 +442,7 @@ print("\nSIMULATION OPTIONS RECAP...")
 print("\tEpochs             ->", epochs)
 print("\tPinns points       ->", num_PDE)
 print("\tBoundary points    ->", num_BC)
+print("\tInitial  points    ->", num_CI)
 print("\tCollocation points ->", num_col)
 print("\tPressure points    ->", num_pres)
 print("\tTest points        ->", num_test)
