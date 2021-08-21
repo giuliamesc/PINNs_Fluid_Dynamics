@@ -9,8 +9,8 @@ nu = 1e0
 T  = 1e-2
 U  = 1
 
-n1 = 20
-n2 = 20
+n1 = 100
+n2 = 100
 dt = 1e-4
 
 # formulation = 'stokes'
