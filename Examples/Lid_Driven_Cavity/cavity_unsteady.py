@@ -51,8 +51,8 @@ T     = 1e-2 # Temporal Horizon
 
 # %% Grid of time and geometry
 
-n1 = 20
-n2 = 20
+n1 = 100
+n2 = 100
 
 n = (n1+1)*(n2+1)
 dt = 1e-4
@@ -114,8 +114,8 @@ p_num = np.concatenate(p, axis = 0)
 num_PDE  = 1000
 num_BC   = 500
 num_CI   = 50
-num_col  = 3000
-num_pres = 1000
+num_col  = 30000
+num_pres = 30000
 num_test = 5000
 
 # %% Simulation Options
