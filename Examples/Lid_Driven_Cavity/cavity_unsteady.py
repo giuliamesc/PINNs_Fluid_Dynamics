@@ -113,14 +113,14 @@ p_num = np.concatenate(p, axis = 0)
 
 num_PDE  = 1000
 num_BC   = 500
-num_CI   = 50
-num_col  = 30000
-num_pres = 30000
-num_test = 5000
+num_CI   = 500
+num_col  = 100000
+num_pres = 900000
+num_test = 100
 
 # %% Simulation Options
 
-epochs      = 2500
+epochs      = 3000
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
