@@ -25,9 +25,9 @@ problem_name = "Lid Driven Cavity - Unsteady"
 # %% Settings for saving and loading
 
 model_name_load = None
-model_name_save = None
+model_name_save = "Prova_20000"
 load_mode = False
-save_mode = False
+save_mode = True
 
 # %% Case Study
 ######################################################################################
@@ -90,14 +90,16 @@ time_vector = np.arange(0.0, T, step = dt)
 x = np.linspace(a, b, n1+1)
 y = np.linspace(a, b, n2+1)
 
-var = np.zeros((N, dim), dtype ='float')
+var_np = np.zeros((N, dim), dtype ='float')
 count = 0
 for t in time_vector:
     for j in y:
         for i in x:
-            var[count, :] = (t, i, j)
-            count = count + 1    
+            var_np[count, :] = (t, i, j)
+            count = count + 1 
             
+var = tf.convert_to_tensor(var_np)
+
 # %% Reading the h5 file with the numerical solutions
 
 count = 0 #number of the time instant
@@ -129,9 +131,9 @@ for count in range(100):
     
     count = count + 1
 
-u_num = np.concatenate(u, axis = 0)
-v_num = np.concatenate(v, axis = 0)
-p_num = np.concatenate(p, axis = 0)
+u_num = tf.convert_to_tensor(np.concatenate(u, axis = 0))
+v_num = tf.convert_to_tensor(np.concatenate(v, axis = 0))
+p_num = tf.convert_to_tensor(np.concatenate(p, axis = 0))
 
 
 # %% Forcing Terms 
@@ -144,21 +146,15 @@ forcing_y = lambda x: 0*x[:,0]
 sequence = [i for i in range(N)] 
 
 subset_PDE = sample(sequence, num_PDE) #extracting a random sample of num_PDE indexes
-x_PDE   = tf.convert_to_tensor(var[subset_PDE,:])
-
 subset_col = sample(sequence, num_col) #extracting a random sample of num_col indexes
-x_col   = tf.convert_to_tensor(var[subset_col,:])
+subset_pres = sample(sequence, num_pres) #extracting a random sample of num_pres indexes
+subset_test = sample(sequence, num_test) #extracting a random sample of num_test indexes
+x_PDE = tf.gather(var, subset_PDE)
 
 x_BC_x0 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, a],  maxval = [T, a, b], dtype = ns.config.get_dtype())
 x_BC_x1 = tf.random.uniform(shape = [num_BC,   3], minval = [0, b, a],  maxval = [T, b, b], dtype = ns.config.get_dtype())
 x_BC_y0 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, a],  maxval = [T, b, a], dtype = ns.config.get_dtype())
 x_BC_y1 = tf.random.uniform(shape = [num_BC,   3], minval = [0, a, b],  maxval = [T, b, b], dtype = ns.config.get_dtype())
-
-subset_test = sample(sequence, num_test) #extracting a random sample of num_test indexes
-x_test  = tf.convert_to_tensor(var[subset_test,:])
-
-subset_pres = sample(sequence, num_pres) #extracting a random sample of num_pres indexes
-x_pres  = tf.convert_to_tensor(var[subset_pres,:])
 
 x_CI   = tf.random.uniform(shape = [num_CI,  3], minval = [0, a, a], maxval = [0, b, b], dtype = ns.config.get_dtype())
 
@@ -272,22 +268,22 @@ def BC_IN(x, k, f, norm = 1, noise = None):
 # %% Collocation and Test Losses
 
 def col_pressure(idx, sol, norm = 1):
-    p = model(var[idx,:])[:,2]
-    samples = sol[idx]
+    p = model(tf.gather(var,idx))[:,2]
+    samples = tf.gather(sol,idx)
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return p - norm_rhs
 
 def col_velocity(idx, k, sol, norm = 1):
-    u = model(var[idx,:])[:,k]
-    samples = sol[idx]
+    u = model(tf.gather(var,idx))[:,k]
+    samples = tf.gather(sol,idx)
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return u - norm_rhs
 
 # %% Other Losses
 
 def exact_value(idx, k, sol, norm = 1):
-    uk = model(var[idx,:])[:,k]
-    samples = sol[idx]
+    uk = model(tf.gather(var,idx))[:,k]
+    samples = tf.gather(sol,idx)
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return uk - norm_rhs
 
@@ -314,8 +310,7 @@ IN_losses = [ns.LossMeanSquares('CI_u', lambda: BC_IN(x_CI, 0, 0, vel_max), weig
 COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(subset_col, 0, u_num, vel_max), weight = 1e0),
               ns.LossMeanSquares('COL_v', lambda: col_velocity(subset_col, 1, v_num, vel_max), weight = 1e0)
               ]
-
-COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(subset_pres, p_num, p_max), weight = 1e0)]
+COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(subset_col, p_num, p_max), weight = 1e0)]
 
 losses = []
 if use_pdelosses: losses += PDE_losses
