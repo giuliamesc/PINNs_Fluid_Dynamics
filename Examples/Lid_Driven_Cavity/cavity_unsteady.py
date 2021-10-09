@@ -31,12 +31,16 @@ save_mode = False
 
 # %% Case Study
 ######################################################################################
+#
 #  \Omega = (0, 1) x (0, 1) T = 1e-2
 #  u_x + v_y = 0                                        in \Omega x (0, T)
 #  u_t - (u_xx + u_yy) + u * u_x + v * u_y + p_x = 0    in \Omega x (0, T)
 #  u_t - (v_xx + v_yy) + u * v_x + v * v_y + p_y = 0    in \Omega x (0, T)
-#  u = v = 0                                            on {0,1} x (0,1) x (0, T), (0,1) x {0} x (0, T)
-#  u = 1                                              on (0,1) x {1} x (0, T)
+#  u = v = 0                                            on {0,1} x (0,1) x (0, T), (0,1) x {0} x [0, T)
+#  u = 1                                                on (0,1) x {1} x [0, T)
+#  v = p = 0                                            in \Omega x {0}
+#  u = 0                                                in \Omega x {0}
+#
 ######################################################################################
 
 
@@ -48,6 +52,27 @@ a     = 0    # Lower extremum
 b     = 1    # Upper extremum
 U     = 1    # x-velocity on the upper boundary
 T     = 1e-2 # Temporal Horizon
+
+# %% Numerical options
+
+num_PDE  = 1000
+num_BC   = 500
+num_CI   = 500
+num_col  = 50000
+num_pres = 50000
+num_test = 1000
+
+# %% Simulation Options
+
+epochs        = 20000
+
+use_pdelosses = False
+use_boundaryc = False
+use_initialco = False
+coll_velocity = True
+coll_pressure = True
+
+use_noise     = False
 
 # %% Grid of time and geometry
 
@@ -61,11 +86,11 @@ num_times = int(T/dt)
 
 N = (n1+1)*(n2+1)*num_times
 
-time_vector = np.linspace(0., T, num_times)
-x = np.linspace(a, b, n1)
-y = np.linspace(a, b, n2)
+time_vector = np.arange(0.0, T, step = dt)
+x = np.linspace(a, b, n1+1)
+y = np.linspace(a, b, n2+1)
 
-var = np.zeros((N, 3), dtype ='float')
+var = np.zeros((N, dim), dtype ='float')
 count = 0
 for t in time_vector:
     for j in y:
@@ -81,7 +106,7 @@ u = []
 v = []
 p = []
 
-for count in np.arange(100):
+for count in range(100):
     if count < 10 :
         file_name = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_0000%s.h5' % count
     else :
@@ -90,7 +115,7 @@ for count in np.arange(100):
     hf = h5py.File(file_name,'r')
     dset = hf['VisualisationVector']
     vel = dset['0']
-    vel_data = np.zeros((n,3), dtype='<f8')
+    vel_data = np.zeros((n,dim), dtype='<f8')
     vel.read_direct(vel_data)
 
     u.append(vel_data[:,0])
@@ -108,22 +133,6 @@ u_num = np.concatenate(u, axis = 0)
 v_num = np.concatenate(v, axis = 0)
 p_num = np.concatenate(p, axis = 0)
 
-
-# %% Numerical options
-
-num_PDE  = 1000
-num_BC   = 500
-num_CI   = 500
-num_col  = 100000
-num_pres = 900000
-num_test = 100
-
-# %% Simulation Options
-
-epochs      = 3000
-use_noise   = False
-collocation = True
-press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
 
 # %% Forcing Terms 
 
@@ -172,7 +181,7 @@ vel_max = max([u_max, v_max])
 # %% Model Creation
 
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(20, input_shape=(3,), activation=tf.nn.tanh),
+    tf.keras.layers.Dense(20, input_shape=(dim,), activation=tf.nn.tanh),
     tf.keras.layers.Dense(20, activation=tf.nn.tanh),
     tf.keras.layers.Dense(20, activation=tf.nn.tanh),
     tf.keras.layers.Dense(3)
@@ -262,31 +271,25 @@ def BC_IN(x, k, f, norm = 1, noise = None):
 
 # %% Collocation and Test Losses
 
-def col_pressure(x, sol, norm = 1):
-    p = model(x)[:,2]
-    samples = sol[subset_pres]
+def col_pressure(idx, sol, norm = 1):
+    p = model(var[idx,:])[:,2]
+    samples = sol[idx]
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return p - norm_rhs
 
-def col_velocity(x, k, sol, norm = 1):
-    u = model(x)[:,k]
-    samples = sol[subset_col]
+def col_velocity(idx, k, sol, norm = 1):
+    u = model(var[idx,:])[:,k]
+    samples = sol[idx]
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return u - norm_rhs
 
 # %% Other Losses
 
-def exact_value(x, k, sol, norm = 1):
-    uk = model(x)[:,k]
-    samples = sol[subset_test]
+def exact_value(idx, k, sol, norm = 1):
+    uk = model(var[idx,:])[:,k]
+    samples = sol[idx]
     norm_rhs = tf.squeeze(tf.convert_to_tensor(samples/norm))
     return uk - norm_rhs
-
-# def PRESS_MEAN(x, p, norm = 1):
-#     uk = model(x)[:,2]
-#     uk_mean = tf.abs(tf.math.reduce_mean(uk))
-#     rhs = create_rhs(x, p/norm)
-#     return uk_mean - rhs
 
 # %% Training Losses definition
 
@@ -308,30 +311,24 @@ IN_losses = [ns.LossMeanSquares('CI_u', lambda: BC_IN(x_CI, 0, 0, vel_max), weig
              ns.LossMeanSquares('CI_v', lambda: BC_IN(x_CI, 1, 0, vel_max), weight = 1e0),
              ns.LossMeanSquares('CI_p', lambda: BC_IN(x_CI, 2, 0, p_max), weight = 1e0)]
 
-COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(x_col, 0, u_num, vel_max), weight = 1e0),
-              ns.LossMeanSquares('COL_v', lambda: col_velocity(x_col, 1, v_num, vel_max), weight = 1e0)
+COL_Losses = [ns.LossMeanSquares('COL_u', lambda: col_velocity(subset_col, 0, u_num, vel_max), weight = 1e0),
+              ns.LossMeanSquares('COL_v', lambda: col_velocity(subset_col, 1, v_num, vel_max), weight = 1e0)
               ]
 
-COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(x_pres, p_num, p_max), weight = 1e0)]
-
-# MEAN_P_Loss = [ns.LossMeanSquares('MEAN_p', lambda: PRESS_MEAN(x_pres, p_mean, p_max), weight = 1e-6)]
+COL_P_Loss = [ns.LossMeanSquares('COL_p', lambda: col_pressure(subset_pres, p_num, p_max), weight = 1e0)]
 
 losses = []
-# losses += PDE_losses
-# losses += BCD_losses
-
-if collocation:
-    losses += COL_Losses
-if press_mode == "Collocation":
-    losses += COL_P_Loss
-if press_mode == "Mean":
-    losses += MEAN_P_Loss
+if use_pdelosses: losses += PDE_losses
+if use_boundaryc: losses += BCD_losses
+if use_initialco: losses += IN_losses
+if coll_velocity: losses += COL_Losses
+if coll_pressure: losses += COL_P_Loss
 
 # %% Test Losses definition
 
-loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(x_test, 0, u_num, vel_max)),
-             ns.LossMeanSquares('v_fit', lambda: exact_value(x_test, 1, v_num, vel_max)),
-             ns.LossMeanSquares('p_fit', lambda: exact_value(x_test, 2, p_num, p_max))
+loss_test = [ns.LossMeanSquares('u_fit', lambda: exact_value(subset_test, 0, u_num, vel_max)),
+             ns.LossMeanSquares('v_fit', lambda: exact_value(subset_test, 1, v_num, vel_max)),
+             ns.LossMeanSquares('p_fit', lambda: exact_value(subset_test, 2, p_num, p_max))
              ]
 
 # %% Training
@@ -446,9 +443,6 @@ print("\tInitial  points    ->", num_CI)
 print("\tCollocation points ->", num_col)
 print("\tPressure points    ->", num_pres)
 print("\tTest points        ->", num_test)
-print("\tPressure mean -> {:e}".format(np.mean(model(x_test)[:,2].numpy())))
 print("\nFENICS FILES RECAP")
 print("\tUnstructured Mesh last change ->", time.ctime(os.path.getmtime(mesh_file)))
 print("\tStructured   Mesh last change ->", time.ctime(os.path.getmtime(regular_mesh_file)))
-#print("\tUnstructured Mesh creation    ->", time.ctime(os.path.getctime(mesh_file)))
-#print("\tStructured   Mesh creation    ->", time.ctime(os.path.getctime(regular_mesh_file)))
