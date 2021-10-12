@@ -11,7 +11,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import h5py 
-from random import seed
 from random import sample
 
 
@@ -27,7 +26,7 @@ problem_name = "Lid Driven Cavity - Unsteady"
 model_name_load = None
 model_name_save = "Prova_20000"
 load_mode = False
-save_mode = True
+save_mode = False
 
 # %% Case Study
 ######################################################################################
@@ -64,7 +63,7 @@ num_test = 1000
 
 # %% Simulation Options
 
-epochs        = 20000
+epochs        = 10000
 
 use_pdelosses = False
 use_boundaryc = False
@@ -107,6 +106,7 @@ count = 0 #number of the time instant
 u = []
 v = []
 p = []
+p_mean = []
 
 for count in range(100):
     if count < 10 :
@@ -127,7 +127,8 @@ for count in range(100):
     pp = np.zeros((n,1), dtype='<f8')
     p_data.read_direct(pp)
     
-    p.append(pp)
+    # Pressure Mean Equal to 0
+    p.append(pp-np.mean(pp))
     
     count = count + 1
 
@@ -373,7 +374,7 @@ my_p_num = pd.DataFrame(df2, columns = [ 'p']).to_numpy().reshape(grid_x.shape)
 my_u_num = pd.DataFrame(df2, columns = ['ux']).to_numpy().reshape(grid_x.shape)
 my_v_num = pd.DataFrame(df2, columns = ['uy']).to_numpy().reshape(grid_x.shape)
 
-# PINN Solutions
+# %% PINN Solutions
 grid_x_flatten = np.reshape(grid_x, (-1,))
 grid_y_flatten = np.reshape(grid_y, (-1,))
 grid = tf.stack([grid_x_flatten, grid_y_flatten], axis = -1)
@@ -439,5 +440,5 @@ print("\tCollocation points ->", num_col)
 print("\tPressure points    ->", num_pres)
 print("\tTest points        ->", num_test)
 print("\nFENICS FILES RECAP")
-print("\tUnstructured Mesh last change ->", time.ctime(os.path.getmtime(mesh_file)))
+print("\tUnstructured Mesh last change ->", time.ctime(os.path.getmtime(regular_mesh_file)))
 print("\tStructured   Mesh last change ->", time.ctime(os.path.getmtime(regular_mesh_file)))

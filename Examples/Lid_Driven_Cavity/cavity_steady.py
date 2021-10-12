@@ -21,10 +21,10 @@ problem_name = "Lid Driven Cavity - Steady"
 
 # %% Settings for saving and loading
 
-model_name_load = "5000ep"
-model_name_save = "10000ep"
+model_name_load = ""
+model_name_save = ""
 load_mode = False
-save_mode = True
+save_mode = False
 
 # %% Case Study
 ######################################################################################
@@ -37,7 +37,7 @@ save_mode = True
 
 # %% Reading the CSV file with the numerical solutions
 
-mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady.csv'
+mesh_file = r'../../DataGeneration/data/SteadyCase/navier-stokes_cavity_steady.csv'
 df = pd.read_csv (mesh_file)
 
 # %% Physical Options
@@ -58,7 +58,7 @@ num_test = 2000
 
 # %% Simulation Options
 
-epochs      = 10000
+epochs      = 100
 use_noise   = False
 collocation = True
 press_mode  = "Collocation" # Options -> "Collocation", "Mean", "None"
@@ -294,7 +294,7 @@ if save_mode and model_name_save is not None:
 grid_x, grid_y = np.meshgrid(np.linspace(a, b , 100), np.linspace(a, b, 100))
 
 # Numerical Solutions
-regular_mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady_r.csv'
+regular_mesh_file = r'../../DataGeneration/data/SteadyCase/navier-stokes_cavity_steady_r.csv'
 df2 = pd.read_csv (regular_mesh_file)
 
 my_p_num = pd.DataFrame(df2, columns = [ 'p']).to_numpy().reshape(grid_x.shape)
@@ -369,5 +369,3 @@ print("\tPressure mean -> {:e}".format(np.mean(model(x_test)[:,2].numpy())))
 print("\nFENICS FILES RECAP")
 print("\tUnstructured Mesh last change ->", time.ctime(os.path.getmtime(mesh_file)))
 print("\tStructured   Mesh last change ->", time.ctime(os.path.getmtime(regular_mesh_file)))
-#print("\tUnstructured Mesh creation    ->", time.ctime(os.path.getctime(mesh_file)))
-#print("\tStructured   Mesh creation    ->", time.ctime(os.path.getctime(regular_mesh_file)))

@@ -91,7 +91,7 @@ if formulation == 'navier-stokes':
 #     p.vector().set_local(p.vector().get_local() - p_mean)
 
 #%% Postprocessing
-output_file = 'data/' + formulation + '_' + testcase + '_steady'
+output_file = 'data/SteadyCase/' + formulation + '_' + testcase + '_steady'
 u.rename('u', 'u')
 p.rename('p', 'p')
 xdmf_file = df.XDMFFile(output_file + '.xdmf')
@@ -116,3 +116,22 @@ data = pd.DataFrame({'x': x_points,
                      'uy': u_points[:,1],
                      'p' : p_points})
 data.to_csv(output_file + '.csv', index = False)
+
+#%% Export to csv
+
+num_out_points = 100 #square root of the desired number of points
+
+x_points = np.linspace(0, L , num_out_points)
+y_points = np.linspace(0, H , num_out_points)
+u_points = np.array([u(x,y) for y in y_points for x in x_points])
+p_points = np.array([p(x,y) for y in y_points for x in x_points])
+x_tab = np.array([x for y in y_points for x in x_points])
+y_tab = np.array([y for y in y_points for x in x_points])
+
+
+data = pd.DataFrame({'x': x_tab,
+                     'y': y_tab,
+                     'ux': u_points[:,0],
+                     'uy': u_points[:,1],
+                     'p' : p_points})
+data.to_csv(output_file + '_r.csv', index = False)
