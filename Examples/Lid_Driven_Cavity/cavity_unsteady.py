@@ -24,9 +24,9 @@ problem_name = "Lid Driven Cavity - Unsteady"
 # %% Settings for saving and loading
 
 model_name_load = None
-model_name_save = "Test_Disegno_5000"
+model_name_save = None
 load_mode = False
-save_mode = 5000
+save_mode = False
 
 # %% Case Study
 ######################################################################################
