@@ -24,7 +24,7 @@ problem_name = "Lid Driven Cavity - Unsteady"
 # %% Settings for saving and loading
 
 model_name_load = None
-model_name_save = "Prova_20000"
+model_name_save = None
 load_mode = False
 save_mode = False
 
@@ -54,16 +54,17 @@ T     = 1e-2 # Temporal Horizon
 
 # %% Numerical options
 
-num_PDE  = 10000
-num_BC   = 5000
-num_CI   = 5000
-num_col  = 20000
-num_pres = 20000
+num_PDE  = 1000
+num_BC   = 500
+num_CI   = 500
+num_col  = 50000
+num_pres = 50000
 num_test = 1000
+
 
 # %% Simulation Options
 
-epochs        = 5000
+epochs        = 10000
 
 use_pdelosses = True
 use_boundaryc = True
@@ -290,7 +291,7 @@ def exact_value(idx, k, sol, norm = 1):
 
 # %% Training Losses definition
 
-PDE_losses = [#ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e-2),
+PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
@@ -363,71 +364,105 @@ if save_mode and model_name_save is not None:
 
 # %% Solutions on Regular Grid
 
+n_time_stamp = 4  # must divide num_times = int(T/dt)
+time_steps = np.linspace(0, T, n_time_stamp+1)
+p_num_list = []
+u_num_list = []
+v_num_list = []
+
 # Regular Grid
 grid_x, grid_y = np.meshgrid(np.linspace(a, b , 100), np.linspace(a, b, 100))
 
 # Numerical Solutions
-regular_mesh_file = r'../../DataGeneration/data/navier-stokes_cavity_steady_r.csv'
+regular_mesh_file = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_r.csv'
 df2 = pd.read_csv (regular_mesh_file)
 
-my_p_num = pd.DataFrame(df2, columns = [ 'p']).to_numpy().reshape(grid_x.shape)
-my_u_num = pd.DataFrame(df2, columns = ['ux']).to_numpy().reshape(grid_x.shape)
-my_v_num = pd.DataFrame(df2, columns = ['uy']).to_numpy().reshape(grid_x.shape)
+for t in time_steps:
+    if t == T: t = T - dt
+    temp_df = df2[df2["t"] == t]
+    p_num_list.append(pd.DataFrame(temp_df, columns = [ 'p']).to_numpy().reshape(grid_x.shape))
+    u_num_list.append(pd.DataFrame(temp_df, columns = ['ux']).to_numpy().reshape(grid_x.shape))
+    v_num_list.append(pd.DataFrame(temp_df, columns = ['uy']).to_numpy().reshape(grid_x.shape))
 
-# %% PINN Solutions
+# %% PINN Solutions 
 grid_x_flatten = np.reshape(grid_x, (-1,))
 grid_y_flatten = np.reshape(grid_y, (-1,))
-grid = tf.stack([grid_x_flatten, grid_y_flatten], axis = -1)
+grid_t0 = np.zeros(grid_x_flatten.shape) 
 
-u = model(grid)[:,0].numpy().reshape(grid_x.shape) * v_max
-v = model(grid)[:,1].numpy().reshape(grid_x.shape) * v_max
-p = model(grid)[:,2].numpy().reshape(grid_x.shape) * p_max
+u_list = []
+v_list = []
+p_list = []
 
-# %% Countour Plots
+for t in time_steps:
+    if t == T: t = T - dt
+    grid_t = grid_t0 + t
+    grid = tf.stack([grid_t, grid_x_flatten, grid_y_flatten], axis = -1)
+    u_list.append(model(grid)[:,0].numpy().reshape(grid_x.shape) * v_max)
+    v_list.append(model(grid)[:,1].numpy().reshape(grid_x.shape) * v_max)
+    p_list.append(model(grid)[:,2].numpy().reshape(grid_x.shape) * p_max)
 
-# Figure Creation
-fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,6))
-plt.subplots_adjust(top = 1.4, right = 1)
-ax1.title.set_text('Numerical u-velocity')
-ax2.title.set_text('PINNS u-velocity')
-ax3.title.set_text('Numerical v-velocity')
-ax4.title.set_text('PINNS v-velocity')
-ax5.title.set_text('Numerical Pressure')
-ax6.title.set_text('PINNS Pressure')
-
-# Contour Levels
+# %% Contour Levels
 def approx_scale(x, up):
     factor = np.floor(np.log10(abs(x)))-1
     if up: x =  np.ceil(x/(np.power(10,factor))/5)
     else : x = np.floor(x/(np.power(10,factor))/5)
     return x*5*np.power(10,factor)
 
-num_levels = 11
-lev_u_min = min(np.min(u),np.min(my_u_num))
-lev_u_max = max(np.max(u),np.max(my_u_num))  
+u_min, u_max = [], []
+v_min, v_max = [], []
+p_min, p_max = [], []
+
+for i, _ in enumerate(time_steps):
+    u_min.append(min(np.min(u_list[i]),np.min(u_num_list[i])))
+    u_max.append(min(np.max(u_list[i]),np.max(u_num_list[i])))
+    v_min.append(min(np.min(v_list[i]),np.min(v_num_list[i])))
+    v_max.append(min(np.max(v_list[i]),np.max(v_num_list[i])))
+    p_min.append(min(np.min(p_list[i]),np.min(p_num_list[i])))
+    p_max.append(min(np.max(p_list[i]),np.max(p_num_list[i])))
+
+lev_u_min, lev_u_max = (min(u_min), max(u_max))
+lev_v_min, lev_v_max = (min(v_min), max(v_max))
+lev_p_min, lev_p_max = (min(p_min), max(p_max))
+
+num_levels = 11 
 level_u = np.linspace(approx_scale(lev_u_min, False), approx_scale(lev_u_max, True), num_levels)
-lev_v_min = min(np.min(v),np.min(my_v_num))
-lev_v_max = max(np.max(v),np.max(my_v_num))  
 level_v = np.linspace(approx_scale(lev_v_min, False), approx_scale(lev_v_max, True), num_levels)
-lev_p_min = min(np.min(p),np.min(my_p_num))
-lev_p_max = max(np.max(p),np.max(my_p_num))  
 level_p = np.linspace(approx_scale(lev_p_min, False), approx_scale(lev_p_max, True), num_levels)
 
-# Numerical Plots
-cs1 = ax1.contourf(grid_x, grid_y, my_u_num, levels = level_u)
-fig.colorbar(cs1, ax=ax1)
-cs3 = ax3.contourf(grid_x, grid_y, my_v_num, levels = level_v)
-fig.colorbar(cs3, ax=ax3)
-cs5 = ax5.contourf(grid_x, grid_y, my_p_num, levels = level_p)
-fig.colorbar(cs5, ax=ax5)
 
-# PINN Plots
-cs2 = ax2.contourf(grid_x, grid_y, u, levels = level_u)
-fig.colorbar(cs2, ax=ax2)
-cs4 = ax4.contourf(grid_x, grid_y, v, levels = level_v)
-fig.colorbar(cs4, ax=ax4)
-cs6 = ax6.contourf(grid_x, grid_y, p, levels = level_p)
-fig.colorbar(cs6, ax=ax6)
+# %% Countour Plots
+
+for i,t in enumerate(time_steps):
+    graph_title = "Solutions when t = {0:.4f}".format(t)
+    graph_title += ", time step #{}/{}".format(int(i*(num_times/n_time_stamp)), num_times)
+    
+    # Figure Creation
+    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,6))
+    fig.suptitle(graph_title , fontsize=18, y = 1.5, x = 0.55)
+    plt.subplots_adjust(top = 1.4, right = 1)
+    ax1.title.set_text('Numerical u-velocity')
+    ax2.title.set_text('PINNS u-velocity')
+    ax3.title.set_text('Numerical v-velocity')
+    ax4.title.set_text('PINNS v-velocity')
+    ax5.title.set_text('Numerical Pressure')
+    ax6.title.set_text('PINNS Pressure')
+    
+    # Numerical Plots
+    cs1 = ax1.contourf(grid_x, grid_y, u_num_list[i], levels = level_u)
+    fig.colorbar(cs1, ax=ax1)
+    cs3 = ax3.contourf(grid_x, grid_y, v_num_list[i], levels = level_v)
+    fig.colorbar(cs3, ax=ax3)
+    cs5 = ax5.contourf(grid_x, grid_y, p_num_list[i], levels = level_p)
+    fig.colorbar(cs5, ax=ax5)
+
+    # PINN Plots
+    cs2 = ax2.contourf(grid_x, grid_y, u_list[i], levels = level_u)
+    fig.colorbar(cs2, ax=ax2)
+    cs4 = ax4.contourf(grid_x, grid_y, v_list[i], levels = level_v)
+    fig.colorbar(cs4, ax=ax4)
+    cs6 = ax6.contourf(grid_x, grid_y, p_list[i], levels = level_p)
+    fig.colorbar(cs6, ax=ax6)
+    
 
 # %% Final recap
 
