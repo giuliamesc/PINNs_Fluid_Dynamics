@@ -54,12 +54,12 @@ T     = 1e-2 # Temporal Horizon
 
 # %% Numerical options
 
-num_PDE  = 1000
-num_BC   = 500
-num_CI   = 500
-num_col  = 50000
-num_pres = 50000
-num_test = 1000
+num_PDE  = 50000
+num_BC   = 5000
+num_CI   = 5000
+num_col  = 10000
+num_pres = 10000
+num_test = 10000
 
 # %% Simulation Options
 
@@ -290,7 +290,7 @@ def exact_value(idx, k, sol, norm = 1):
 
 # %% Training Losses definition
 
-PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e-2),
+PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e0, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
