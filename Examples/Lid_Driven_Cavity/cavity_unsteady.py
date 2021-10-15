@@ -378,7 +378,8 @@ df2 = pd.read_csv (regular_mesh_file)
 
 for t in time_steps:
     if t == T: t = T - dt
-    temp_df = df2[df2["t"] == t]
+    temp_df = df2[df2["t"] >= t-dt/4]
+    temp_df = temp_df[temp_df["t"] <= t+dt/4]
     p_temp = pd.DataFrame(temp_df, columns = [ 'p']).to_numpy().reshape(grid_x.shape)
     p_num_list.append(p_temp-np.mean(p_temp))
     u_num_list.append(pd.DataFrame(temp_df, columns = ['ux']).to_numpy().reshape(grid_x.shape))
