@@ -57,17 +57,17 @@ T     = 1e-2 # Temporal Horizon
 num_PDE  = 50000
 num_BC   = 5000
 num_CI   = 5000
-num_col  = 10000
-num_pres = 10000
+num_col  = 5000
+num_pres = 5000
 num_test = 10000
 
 # %% Simulation Options
 
-epochs        = 100
+epochs        = 5000
 
-use_pdelosses = False
-use_boundaryc = False
-use_initialco = False
+use_pdelosses = True
+use_boundaryc = True
+use_initialco = True
 coll_velocity = True
 coll_pressure = True
 
@@ -178,9 +178,9 @@ vel_max = max([u_max, v_max])
 # %% Model Creation
 
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(20, input_shape=(dim,), activation=tf.nn.tanh),
-    tf.keras.layers.Dense(20, activation=tf.nn.tanh),
-    tf.keras.layers.Dense(20, activation=tf.nn.tanh),
+    tf.keras.layers.Dense(32, input_shape=(dim,), activation=tf.nn.tanh),
+    tf.keras.layers.Dense(32, activation=tf.nn.tanh),
+    tf.keras.layers.Dense(32, activation=tf.nn.tanh),
     tf.keras.layers.Dense(3)
 ])
 
@@ -378,7 +378,8 @@ df2 = pd.read_csv (regular_mesh_file)
 
 for t in time_steps:
     if t == T: t = T - dt
-    temp_df = df2[df2["t"] == t]
+    temp_df = df2[df2["t"] >= t-dt/4]
+    temp_df = temp_df[temp_df["t"] <= t+dt/4]
     p_temp = pd.DataFrame(temp_df, columns = [ 'p']).to_numpy().reshape(grid_x.shape)
     p_num_list.append(p_temp-np.mean(p_temp))
     u_num_list.append(pd.DataFrame(temp_df, columns = ['ux']).to_numpy().reshape(grid_x.shape))
