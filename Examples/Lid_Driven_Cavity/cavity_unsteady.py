@@ -54,21 +54,20 @@ T     = 1e-2 # Temporal Horizon
 
 # %% Numerical options
 
-num_PDE  = 1000
-num_BC   = 500
-num_CI   = 500
-num_col  = 50000
-num_pres = 50000
-num_test = 1000
-
+num_PDE  = 50000
+num_BC   = 5000
+num_CI   = 5000
+num_col  = 10000
+num_pres = 10000
+num_test = 10000
 
 # %% Simulation Options
 
-epochs        = 10000
+epochs        = 100
 
-use_pdelosses = True
-use_boundaryc = True
-use_initialco = True
+use_pdelosses = False
+use_boundaryc = False
+use_initialco = False
 coll_velocity = True
 coll_pressure = True
 
@@ -291,7 +290,7 @@ def exact_value(idx, k, sol, norm = 1):
 
 # %% Training Losses definition
 
-PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e4, weight = 1e-2),
+PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalization = 1e0, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMU', lambda: PDE_MOM(x_PDE, 0, forcing_x), normalization = 1e4, weight = 1e-2),
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
@@ -380,7 +379,8 @@ df2 = pd.read_csv (regular_mesh_file)
 for t in time_steps:
     if t == T: t = T - dt
     temp_df = df2[df2["t"] == t]
-    p_num_list.append(pd.DataFrame(temp_df, columns = [ 'p']).to_numpy().reshape(grid_x.shape))
+    p_temp = pd.DataFrame(temp_df, columns = [ 'p']).to_numpy().reshape(grid_x.shape)
+    p_num_list.append(p_temp-np.mean(p_temp))
     u_num_list.append(pd.DataFrame(temp_df, columns = ['ux']).to_numpy().reshape(grid_x.shape))
     v_num_list.append(pd.DataFrame(temp_df, columns = ['uy']).to_numpy().reshape(grid_x.shape))
 
@@ -414,11 +414,11 @@ p_min, p_max = [], []
 
 for i, _ in enumerate(time_steps):
     u_min.append(min(np.min(u_list[i]),np.min(u_num_list[i])))
-    u_max.append(min(np.max(u_list[i]),np.max(u_num_list[i])))
+    u_max.append(max(np.max(u_list[i]),np.max(u_num_list[i])))
     v_min.append(min(np.min(v_list[i]),np.min(v_num_list[i])))
-    v_max.append(min(np.max(v_list[i]),np.max(v_num_list[i])))
+    v_max.append(max(np.max(v_list[i]),np.max(v_num_list[i])))
     p_min.append(min(np.min(p_list[i]),np.min(p_num_list[i])))
-    p_max.append(min(np.max(p_list[i]),np.max(p_num_list[i])))
+    p_max.append(max(np.max(p_list[i]),np.max(p_num_list[i])))
 
 lev_u_min, lev_u_max = (min(u_min), max(u_max))
 lev_v_min, lev_v_max = (min(v_min), max(v_max))
