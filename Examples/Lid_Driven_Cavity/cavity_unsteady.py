@@ -54,16 +54,16 @@ T     = 1e-2 # Temporal Horizon
 
 # %% Numerical options
 
-num_PDE  = 50000
+num_PDE  = 10000
 num_BC   = 5000
 num_CI   = 5000
-num_col  = 5000
+num_col  = 1000
 num_pres = 5000
-num_test = 10000
+num_test = 5000
 
 # %% Simulation Options
 
-epochs        = 5000
+epochs        = 10
 
 use_pdelosses = True
 use_boundaryc = True
@@ -409,21 +409,21 @@ def approx_scale(x, up):
     else : x = np.floor(x/(np.power(10,factor))/5)
     return x*5*np.power(10,factor)
 
-u_min, u_max = [], []
-v_min, v_max = [], []
-p_min, p_max = [], []
+u_min_d, u_max_d = [], []
+v_min_d, v_max_d = [], []
+p_min_d, p_max_d = [], []
 
 for i, _ in enumerate(time_steps):
-    u_min.append(min(np.min(u_list[i]),np.min(u_num_list[i])))
-    u_max.append(max(np.max(u_list[i]),np.max(u_num_list[i])))
-    v_min.append(min(np.min(v_list[i]),np.min(v_num_list[i])))
-    v_max.append(max(np.max(v_list[i]),np.max(v_num_list[i])))
-    p_min.append(min(np.min(p_list[i]),np.min(p_num_list[i])))
-    p_max.append(max(np.max(p_list[i]),np.max(p_num_list[i])))
+    u_min_d.append(min(np.min(u_list[i]),np.min(u_num_list[i])))
+    u_max_d.append(max(np.max(u_list[i]),np.max(u_num_list[i])))
+    v_min_d.append(min(np.min(v_list[i]),np.min(v_num_list[i])))
+    v_max_d.append(max(np.max(v_list[i]),np.max(v_num_list[i])))
+    p_min_d.append(min(np.min(p_list[i]),np.min(p_num_list[i])))
+    p_max_d.append(max(np.max(p_list[i]),np.max(p_num_list[i])))
 
-lev_u_min, lev_u_max = (min(u_min), max(u_max))
-lev_v_min, lev_v_max = (min(v_min), max(v_max))
-lev_p_min, lev_p_max = (min(p_min), max(p_max))
+lev_u_min, lev_u_max = (min(u_min_d), max(u_max_d))
+lev_v_min, lev_v_max = (min(v_min_d), max(v_max_d))
+lev_p_min, lev_p_max = (min(p_min_d), max(p_max_d))
 
 num_levels = 11 
 level_u = np.linspace(approx_scale(lev_u_min, False), approx_scale(lev_u_max, True), num_levels)
@@ -438,8 +438,8 @@ for i,t in enumerate(time_steps):
     graph_title += ", time step #{}/{}".format(int(i*(num_times/n_time_stamp)), num_times)
     
     # Figure Creation
-    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,6))
-    fig.suptitle(graph_title , fontsize=18, y = 1.5, x = 0.55)
+    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,8))
+    fig.suptitle(graph_title , fontsize=18, y = 0.97, x = 0.50)
     plt.subplots_adjust(top = 1.4, right = 1)
     ax1.title.set_text('Numerical u-velocity')
     ax2.title.set_text('PINNS u-velocity')
@@ -463,6 +463,11 @@ for i,t in enumerate(time_steps):
     fig.colorbar(cs4, ax=ax4)
     cs6 = ax6.contourf(grid_x, grid_y, p_list[i], levels = level_p)
     fig.colorbar(cs6, ax=ax6)
+    
+    plt.tight_layout()
+    saving_file = os.path.join(cwd, "Images//{}_Graphic_{}_of_{}.jpg".format(problem_name, i+1, n_time_stamp+1))
+    plt.savefig(saving_file)
+   
     
 
 # %% Final recap
