@@ -56,14 +56,14 @@ T     = 1e-2 # Temporal Horizon
 
 num_PDE  = 10000
 num_BC   = 5000
-num_CI   = 5000
+num_CI   = 9000
 num_col  = 1000
-num_pres = 5000
-num_test = 5000
+num_pres = 2500
+num_test = 7500
 
 # %% Simulation Options
 
-epochs        = 10
+epochs        = 5000
 
 use_pdelosses = True
 use_boundaryc = True
