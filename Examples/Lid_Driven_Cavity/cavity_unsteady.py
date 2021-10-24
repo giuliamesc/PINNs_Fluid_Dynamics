@@ -211,10 +211,10 @@ if use_noise:
     BCD_noise_x1 = generate_noise(x_BC_x1, factor = 1e-1)
     BCD_noise_y1 = generate_noise(x_BC_y1, factor = 1e-1)
 else:
-    BCD_noise_x = None
-    BCD_noise_y = None
-    BCD_noise_x_up = None
-    BCD_noise_y_up = None
+    BCD_noise_x0 = None
+    BCD_noise_y0 = None
+    BCD_noise_x1 = None
+    BCD_noise_y1 = None
 
 # %% PDE Losses creation
 
