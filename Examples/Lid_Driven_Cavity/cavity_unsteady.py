@@ -71,7 +71,7 @@ use_initialco = True
 coll_velocity = True
 coll_pressure = True
 
-use_noise     = False
+use_noise     = True
 
 # %% Grid of time and geometry
 
@@ -188,8 +188,10 @@ model = tf.keras.Sequential([
 
 def generate_noise(x, factor = 0, sd = 1.0, mn = 0.0):
     shape = x.shape[0]
-    noise = tf.random.normal([shape], mean=mn, stddev=sd, dtype= ns.config.get_dtype())
-    return noise * factor
+    noise_x = tf.random.normal([shape], mean=mn, stddev=sd, dtype= ns.config.get_dtype())
+    noise_y = tf.random.normal([shape], mean=mn, stddev=sd, dtype= ns.config.get_dtype())
+    noise = [noise_x, noise_y]
+    return tf.concat(noise, axis = 0) * factor
 
 def create_rhs(x, force, noise = None):
     samples = x.shape[0]
@@ -204,10 +206,10 @@ def create_rhs(x, force, noise = None):
 # %% Noise Creation
 
 if use_noise:
-    BCD_noise_x = generate_noise(x_BCD_0, factor = 1e-1)
-    BCD_noise_y = generate_noise(x_BCD_0, factor = 1e-1)
-    BCD_noise_x_up = generate_noise(x_BC_y1, factor = 1e-1)
-    BCD_noise_y_up = generate_noise(x_BC_y1, factor = 1e-1)
+    BCD_noise_x0 = generate_noise(x_BC_x0, factor = 1e-1)
+    BCD_noise_y0 = generate_noise(x_BC_y0, factor = 1e-1)
+    BCD_noise_x1 = generate_noise(x_BC_x1, factor = 1e-1)
+    BCD_noise_y1 = generate_noise(x_BC_y1, factor = 1e-1)
 else:
     BCD_noise_x = None
     BCD_noise_y = None
@@ -254,7 +256,7 @@ def PDE_MOM(x, k, force):
 
 def BC_D(x, k, f, norm = 1, noise = None):
     uk = model(x)[:,k]
-    rhs = create_rhs(x, f, noise)
+    rhs = create_rhs(x, f, noise[k])
     norm_rhs = rhs/norm
     return uk - norm_rhs
 
@@ -295,14 +297,14 @@ PDE_losses = [ns.LossMeanSquares('PDE_MASS', lambda: PDE_MASS(x_PDE), normalizat
               ns.LossMeanSquares('PDE_MOMV', lambda: PDE_MOM(x_PDE, 1, forcing_y), normalization = 1e4, weight = 1e-2)
               ]
 
-BCD_losses = [ns.LossMeanSquares('BCD_u_x0', lambda: BC_D(x_BC_x0, 0, 0, vel_max, BCD_noise_x), weight = 1e0),
-              ns.LossMeanSquares('BCD_v_x0', lambda: BC_D(x_BC_x0, 1, 0, vel_max, BCD_noise_y), weight = 1e0),
-              ns.LossMeanSquares('BCD_u_x1', lambda: BC_D(x_BC_x1, 0, 0, vel_max, BCD_noise_x), weight = 1e0),
-              ns.LossMeanSquares('BCD_v_x1', lambda: BC_D(x_BC_x1, 1, 0, vel_max, BCD_noise_y), weight = 1e0),
-              ns.LossMeanSquares('BCD_u_y0', lambda: BC_D(x_BC_y0, 0, 0, vel_max, BCD_noise_x), weight = 1e0),
-              ns.LossMeanSquares('BCD_v_y0', lambda: BC_D(x_BC_y0, 1, 0, vel_max, BCD_noise_y), weight = 1e0),
-              ns.LossMeanSquares('BCD_u_y1', lambda: BC_D(x_BC_y1, 0, U, vel_max, BCD_noise_x_up), weight = 1e0),
-              ns.LossMeanSquares('BCD_v_y1', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y_up), weight = 1e0)
+BCD_losses = [ns.LossMeanSquares('BCD_u_x0', lambda: BC_D(x_BC_x0, 0, 0, vel_max, BCD_noise_x0), weight = 1e0),
+              ns.LossMeanSquares('BCD_v_x0', lambda: BC_D(x_BC_x0, 1, 0, vel_max, BCD_noise_x0), weight = 1e0),
+              ns.LossMeanSquares('BCD_u_x1', lambda: BC_D(x_BC_x1, 0, 0, vel_max, BCD_noise_x1), weight = 1e0),
+              ns.LossMeanSquares('BCD_v_x1', lambda: BC_D(x_BC_x1, 1, 0, vel_max, BCD_noise_x1), weight = 1e0),
+              ns.LossMeanSquares('BCD_u_y0', lambda: BC_D(x_BC_y0, 0, 0, vel_max, BCD_noise_y0), weight = 1e0),
+              ns.LossMeanSquares('BCD_v_y0', lambda: BC_D(x_BC_y0, 1, 0, vel_max, BCD_noise_y0), weight = 1e0),
+              ns.LossMeanSquares('BCD_u_y1', lambda: BC_D(x_BC_y1, 0, U, vel_max, BCD_noise_y1), weight = 1e0),
+              ns.LossMeanSquares('BCD_v_y1', lambda: BC_D(x_BC_y1, 1, 0, vel_max, BCD_noise_y1), weight = 1e0)
               ]
 IN_losses = [ns.LossMeanSquares('CI_u', lambda: BC_IN(x_CI, 0, 0, vel_max), weight = 1e0),
              ns.LossMeanSquares('CI_v', lambda: BC_IN(x_CI, 1, 0, vel_max), weight = 1e0),
