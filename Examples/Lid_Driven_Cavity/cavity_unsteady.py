@@ -34,7 +34,7 @@ save_mode = False
 #  \Omega = (0, 1) x (0, 1) T = 1e-2
 #  u_x + v_y = 0                                        in \Omega x (0, T)
 #  u_t - (u_xx + u_yy) + u * u_x + v * u_y + p_x = 0    in \Omega x (0, T)
-#  u_t - (v_xx + v_yy) + u * v_x + v * v_y + p_y = 0    in \Omega x (0, T)
+#  v_t - (v_xx + v_yy) + u * v_x + v * v_y + p_y = 0    in \Omega x (0, T)
 #  u = v = 0                                            on {0,1} x (0,1) x (0, T), (0,1) x {0} x [0, T)
 #  u = 1                                                on (0,1) x {1} x [0, T)
 #  v = p = 0                                            in \Omega x {0}
