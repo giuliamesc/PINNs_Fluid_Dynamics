@@ -17,17 +17,17 @@ os.chdir(cwd)
 
 # %% Setup Options --- Setting Simulation Options
 
-epochs = 50
+epochs = 5000
 
 n_pts = {}
-n_pts["PDE"]  = 1000
+n_pts["PDE"]  = 10000
 n_pts["BC"]   = 1000
 n_pts["IC"]   = 1000
-n_pts["Vel"]  = 1000
-n_pts["Pres"] = 1000
+n_pts["Vel"]  = 500
+n_pts["Pres"] = 10
 n_pts["Test"] = 10000
 
-use_pdelosses = False
+use_pdelosses = True
 use_boundaryc = True
 use_initialco = True
 coll_velocity = True
@@ -340,3 +340,15 @@ for i,t in enumerate(time_steps):
     plt.tight_layout()
     saving_file = os.path.join(cwd, "Images//{}_Graphic_{}_of_{}.jpg".format(problem_name, i+1, n_time_stamp+1))
     plt.savefig(saving_file)
+    
+# %% Final Recap
+
+print("\nSIMULATION OPTIONS RECAP...")
+print("\tTraining Epochs ->", epochs, "epochs")
+print("\tPyhsical PDE Losses  ->", n_pts["PDE"], "points")
+print("\tBoundary Conditions  ->", n_pts["BC"], "points")
+print("\tInitial  Conditions  ->", n_pts["IC"], "points")
+print("\tCollocation Velocity ->", n_pts["Vel"]  if coll_velocity else 0, "points")
+print("\tCollocation Pressure ->", n_pts["Pres"] if coll_pressure else 0, "points")
+print("\tNoise on Boundary ->", noise_factor_bnd, "times a gaussian N(0,1)")
+print("\tNoise on Domain   ->", noise_factor_col, "times a gaussian N(0,1)")
