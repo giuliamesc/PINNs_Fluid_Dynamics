@@ -17,7 +17,7 @@ os.chdir(cwd)
 
 # %% Setup Options --- Setting Simulation Options
 
-epochs = 200
+epochs = 50
 
 n_pts = {}
 n_pts["PDE"]  = 1000
@@ -114,11 +114,11 @@ sol_norm  = [u_ex_norm , v_ex_norm, p_ex_norm]
 
 bnd_pts = {}
 if dim == 3:
-    boundary_sampling = lambda minval, maxval: tf.random.uniform(shape = [n_pts["BC"], dim], minval = [0, minval[0], minval[1]], maxval = [T, maxval[0], maxval[1]], dtype = ns.config.get_dtype())
-    starting_sampling = lambda minval, maxval: tf.random.uniform(shape = [n_pts["IC"], dim], minval = minval, maxval = maxval, dtype = ns.config.get_dtype())
+    boundary_sampling = lambda minval, maxval: tf.random.uniform(shape = [n_pts["BC"], dim], minval = [0, minval[0], minval[1]], maxval = [T, maxval[0], maxval[1]])
+    starting_sampling = lambda minval, maxval: tf.random.uniform(shape = [n_pts["IC"], dim], minval = minval, maxval = maxval)
     bnd_pts["IC"] = starting_sampling([0, Le_x, Le_y], [0, Ue_x, Ue_y])
 elif dim == 2:
-    boundary_sampling = lambda minval, maxval: tf.random.uniform(shape = [n_pts["BC"], dim], minval = minval, maxval = maxval, dtype = ns.config.get_dtype())
+    boundary_sampling = lambda minval, maxval: tf.random.uniform(shape = [n_pts["BC"], dim], minval = minval, maxval = maxval)
 
 
 bnd_pts["BOT"] = boundary_sampling([Le_x, Le_y], [Ue_x, Le_y])
@@ -126,7 +126,7 @@ bnd_pts["DX"]  = boundary_sampling([Ue_x, Le_y], [Ue_x, Ue_y])
 bnd_pts["TOP"] = boundary_sampling([Le_x, Ue_y], [Ue_x, Ue_y])
 bnd_pts["SX"]  = boundary_sampling([Le_x, Le_y], [Le_x, Ue_y])
 
-zero_base = tf.zeros(shape = [n_pts["BC"]], dtype = ns.config.get_dtype())
+zero_base = tf.zeros(shape = [n_pts["BC"]], dtype = np.double)
 
 for key, value in bnd_val[0].items():
     bnd_val[0][key] = zero_base + value/norm_vel if type(value) == float or type(value) == int else zero_base + value(bnd_pts[key])/norm_vel
@@ -136,7 +136,7 @@ for key, value in bnd_val[1].items():
 # %% Data Creation --- Noise Management
 
 def generate_noise(n_pts, factor = 0, sd = 1.0, mn = 0.0):
-    noise = tf.random.normal([n_pts], mean=mn, stddev=sd, dtype= ns.config.get_dtype())
+    noise = tf.random.normal([n_pts], mean=mn, stddev=sd, dtype= np.double)
     return noise * factor
 
 for key, _ in bnd_val[0].items():
@@ -192,7 +192,7 @@ def dir_loss(points, component, rhs):
     return uk - rhs
 
 BC_D = lambda edge, component:   dir_loss(bnd_pts[edge], component, bnd_val[component][edge])
-IN_C = lambda component:         dir_loss(bnd_pts["IC"], component, tf.zeros(shape = [n_pts["IC"]], dtype = ns.config.get_dtype())) # Try to improve the 0
+IN_C = lambda component:         dir_loss(bnd_pts["IC"], component, tf.zeros(shape = [n_pts["IC"]], dtype = np.double)) # Try to improve the 0
 col_velocity = lambda component: dir_loss(tf.gather(dom_grid,idx_set["Vel" ]), component, sol_noise[component])
 col_pressure = lambda:           dir_loss(tf.gather(dom_grid,idx_set["Pres"]), 2, sol_noise[2])
 exact_value  = lambda component: dir_loss(tf.gather(dom_grid,idx_set["Test"]), component, tf.gather(sol_norm[component],idx_set["Test"]))
@@ -255,7 +255,7 @@ import pandas as pd
 
 # Regular Grid
 grid_x, grid_y = np.meshgrid(np.linspace(Le_x, Ue_x , 100), np.linspace(Le_y, Ue_y, 100))
-n_time_stamp = 4  # must divide num_times = int(T/dt)
+n_time_stamp = 4
 time_steps = np.linspace(0, T, n_time_stamp+1)
 p_ex_list = []
 u_ex_list = []
@@ -267,8 +267,7 @@ dfr = pd.read_csv (regular_mesh_file)
 
 for t in time_steps:
     if t == T: t = T - dt
-    temp_df = dfr[dfr["t"] >= t-dt/4]
-    temp_df = temp_df[temp_df["t"] <= t+dt/4]
+    temp_df = dfr.loc[(dfr["t"] > t-dt/4) & (dfr["t"] < t+dt/4)]
     p_temp = pd.DataFrame(temp_df, columns = ['p']).to_numpy().reshape(grid_x.shape)
     p_ex_list.append(p_temp-np.mean(p_temp))
     u_ex_list.append(pd.DataFrame(temp_df, columns = ['ux']).to_numpy().reshape(grid_x.shape))
@@ -280,9 +279,7 @@ grid_x_flatten = np.reshape(grid_x, (-1,))
 grid_y_flatten = np.reshape(grid_y, (-1,))
 grid_t0 = np.zeros(grid_x_flatten.shape) 
 
-u_list = []
-v_list = []
-p_list = []
+u_list, v_list, p_list = [], [], []
 
 for t in time_steps:
     if t == T: t = T - dt
