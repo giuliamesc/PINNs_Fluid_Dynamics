@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 
 # Setting Names and Working Directory 
-problem_name = "Lid Driven Cavity - Unsteady"
+problem_name = "Cavity_Unsteady"
 cwd = os.path.abspath(os.getcwd())
 nisaba_wd = "../../../nisaba"
 
@@ -14,6 +14,24 @@ nisaba_wd = "../../../nisaba"
 os.chdir(nisaba_wd)
 import nisaba as ns
 os.chdir(cwd)
+
+# %% Setup Options --- Saving Options
+
+save_results = False
+
+default_name    = "Test_Case_#"
+default_folder  = "Last_Training" 
+recap_file_name = "Test_Options.txt"
+
+test_cases = [x for x in os.listdir() if x.startswith(default_name)]
+naming_idx = 1 if not test_cases else (max([int(x[len(default_name):]) for x in test_cases])+1)
+saved_test_folder = f"{default_name}{naming_idx:02d}"
+
+default_folder = "Last_Training" 
+saving_folder  = saved_test_folder if save_results else default_folder  
+if save_results: os.mkdir(saving_folder)
+else: 
+    if default_folder not in os.listdir(): os.mkdir(default_folder)
 
 # %% Setup Options --- Setting Simulation Options
 
@@ -63,8 +81,6 @@ bnd_val[1]["BOT"] = 0
 bnd_val[1] ["DX"] = 0
 bnd_val[1]["TOP"] = 0
 bnd_val[1] ["SX"] = 0
-
-#U = 1    # x-velocity on the upper boundary
 
 # %% Data Creation --- Building the Grid
 
@@ -192,7 +208,7 @@ def dir_loss(points, component, rhs):
     return uk - rhs
 
 BC_D = lambda edge, component:   dir_loss(bnd_pts[edge], component, bnd_val[component][edge])
-IN_C = lambda component:         dir_loss(bnd_pts["IC"], component, tf.zeros(shape = [n_pts["IC"]], dtype = np.double)) # Try to improve the 0
+IN_C = lambda component:         dir_loss(bnd_pts["IC"], component, tf.zeros(shape = [n_pts["IC"]], dtype = np.double))
 col_velocity = lambda component: dir_loss(tf.gather(dom_grid,idx_set["Vel" ]), component, sol_noise[component])
 col_pressure = lambda:           dir_loss(tf.gather(dom_grid,idx_set["Pres"]), 2, sol_noise[2])
 exact_value  = lambda component: dir_loss(tf.gather(dom_grid,idx_set["Test"]), component, tf.gather(sol_norm[component],idx_set["Test"]))
@@ -239,8 +255,8 @@ loss_test = [LMS('u_fit', lambda: exact_value(0)),
 
 # %% Model's Setup --- Training Section
 
-loss_image_file = os.path.join(cwd, "Images//{}_LossTrend.png".format(problem_name))
-history_file    = os.path.join(cwd, "Images//{}_history_loss.json".format(problem_name))
+loss_image_file = os.path.join(cwd, "{}//Loss_Trend.png".format(saving_folder))
+history_file    = os.path.join(cwd, "{}//History_Loss.json".format(saving_folder))
 
 pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
 pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False,
@@ -338,17 +354,27 @@ for i,t in enumerate(time_steps):
     plot_subfig(fig, ax6, p_list[i], level_p, 'PINNS Pressure')
     
     plt.tight_layout()
-    saving_file = os.path.join(cwd, "Images//{}_Graphic_{}_of_{}.jpg".format(problem_name, i+1, n_time_stamp+1))
+    saving_file = os.path.join(cwd, "{}//Graphic_{}_of_{}.jpg".format(saving_folder, i+1, n_time_stamp+1))
     plt.savefig(saving_file)
     
 # %% Final Recap
 
+recap_info = []
+recap_info.append("Problem Name    -> {}".format(problem_name))
+recap_info.append("Training Epochs -> {} epochs".format(epochs))
+recap_info.append("Pyhsical PDE Losses  -> {} points".format(n_pts["PDE"]))
+recap_info.append("Boundary Conditions  -> {} points".format(n_pts["BC"]))
+recap_info.append("Initial  Conditions  -> {} points".format(n_pts["IC"]))
+recap_info.append("Collocation Velocity -> {} points".format(n_pts["Vel"]  if coll_velocity else 0))
+recap_info.append("Collocation Pressure -> {} points".format(n_pts["Pres"] if coll_pressure else 0))
+recap_info.append("Noise on Boundary -> {} times a gaussian N(0,1)".format(noise_factor_bnd))
+recap_info.append("Noise on Domain   -> {} times a gaussian N(0,1)".format(noise_factor_col))
+ 
+
+recap_file_path = os.path.join(os.path.join(cwd, saving_folder),recap_file_name)
+recap_file = open(recap_file_path, "w")                                                                          
 print("\nSIMULATION OPTIONS RECAP...")
-print("\tTraining Epochs ->", epochs, "epochs")
-print("\tPyhsical PDE Losses  ->", n_pts["PDE"], "points")
-print("\tBoundary Conditions  ->", n_pts["BC"], "points")
-print("\tInitial  Conditions  ->", n_pts["IC"], "points")
-print("\tCollocation Velocity ->", n_pts["Vel"]  if coll_velocity else 0, "points")
-print("\tCollocation Pressure ->", n_pts["Pres"] if coll_pressure else 0, "points")
-print("\tNoise on Boundary ->", noise_factor_bnd, "times a gaussian N(0,1)")
-print("\tNoise on Domain   ->", noise_factor_col, "times a gaussian N(0,1)")
+for row_string in recap_info:
+    print("\t",row_string)
+    recap_file.write(row_string+"\n")
+recap_file.close()
