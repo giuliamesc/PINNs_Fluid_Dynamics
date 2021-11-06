@@ -17,7 +17,7 @@ os.chdir(cwd)
 
 # %% Setup Options --- Saving Options
 
-save_results = False
+save_results = True
 
 default_name    = "Test_Case_#"
 default_folder  = "Last_Training" 
@@ -35,7 +35,7 @@ else:
 
 # %% Setup Options --- Setting Simulation Options
 
-epochs = 5000
+epochs = 50
 
 n_pts = {}
 n_pts["PDE"]  = 10000
