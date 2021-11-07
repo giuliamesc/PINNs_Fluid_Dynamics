@@ -1,6 +1,7 @@
 # NAPDE_PINNs_FluidDynamics
 
 ## To do list:
+- Get input parameters from a file (do also the .gitignore)
 - Refactor the code for the time-independent case (cavity)
 - Then, modify Poiseuille and Colliding
 - Generate plots with many epochs (until plateau of losses)
