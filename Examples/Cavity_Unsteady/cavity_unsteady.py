@@ -25,9 +25,8 @@ recap_file_name = "Test_Options.txt"
 
 test_cases = [x for x in os.listdir() if x.startswith(default_name)]
 naming_idx = 1 if not test_cases else (max([int(x[len(default_name):]) for x in test_cases])+1)
-saved_test_folder = f"{default_name}{naming_idx:02d}"
+saved_test_folder = f"{default_name}{naming_idx:03d}"
 
-default_folder = "Last_Training" 
 saving_folder  = saved_test_folder if save_results else default_folder  
 if save_results: os.mkdir(saving_folder)
 else: 
@@ -35,14 +34,14 @@ else:
 
 # %% Setup Options --- Setting Simulation Options
 
-epochs = 50
+epochs = 5000
 
 n_pts = {}
 n_pts["PDE"]  = 10000
 n_pts["BC"]   = 1000
 n_pts["IC"]   = 1000
-n_pts["Vel"]  = 500
-n_pts["Pres"] = 10
+n_pts["Vel"]  = 50
+n_pts["Pres"] = 1
 n_pts["Test"] = 10000
 
 use_pdelosses = True
@@ -55,8 +54,8 @@ uniform_mesh = True
  
 collocation_noise = True
 boundary_noise    = True
-noise_factor_col = 0.1 if collocation_noise else 0
-noise_factor_bnd = 0.1 if boundary_noise else 0
+noise_factor_col = 0.05 if collocation_noise else 0
+noise_factor_bnd = 0.05 if boundary_noise else 0
 
 # %% Setup Options --- Setting Physical Parameters
 
@@ -224,9 +223,9 @@ model = tf.keras.Sequential([
 
 LMS = ns.LossMeanSquares
 
-PDE_losses = [LMS('PDE_MASS', lambda: PDE_MASS(), weight = 1e-2),
-              LMS('PDE_MOMU', lambda: PDE_MOM(0), weight = 1e-3),
-              LMS('PDE_MOMV', lambda: PDE_MOM(1), weight = 1e-3)]
+PDE_losses = [LMS('PDE_MASS', lambda: PDE_MASS(), weight = 1e0),
+              LMS('PDE_MOMU', lambda: PDE_MOM(0), weight = 1e-1),
+              LMS('PDE_MOMV', lambda: PDE_MOM(1), weight = 1e-1)]
 BCD_losses = [LMS('BCD_u_x0', lambda: BC_D( "SX", 0), weight = 1e0),
               LMS('BCD_v_x0', lambda: BC_D( "SX", 1), weight = 1e0),
               LMS('BCD_u_x1', lambda: BC_D( "DX", 0), weight = 1e0),
