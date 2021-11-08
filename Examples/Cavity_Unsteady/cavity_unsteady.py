@@ -34,28 +34,28 @@ else:
 
 # %% Setup Options --- Setting Simulation Options
 
-epochs = 5000
+options_file_name = "simulation_options.txt"
+options_file_path = os.path.join(cwd,options_file_name)
+with open(options_file_path) as options_file:
+    simulation_options = options_file.readlines()[0:-1:2]
+
+epochs = int(simulation_options[1])
+noise_factor_col = float(simulation_options[2])
+noise_factor_bnd = float(simulation_options[3])
 
 n_pts = {}
-n_pts["PDE"]  = 10000
-n_pts["BC"]   = 1000
-n_pts["IC"]   = 1000
-n_pts["Vel"]  = 50
-n_pts["Pres"] = 1
-n_pts["Test"] = 10000
+n_pts["PDE"]  = int(simulation_options[4])
+n_pts["BC"]   = int(simulation_options[5])
+n_pts["IC"]   = int(simulation_options[6])
+n_pts["Vel"]  = int(simulation_options[7])
+n_pts["Pres"] = int(simulation_options[8])
+n_pts["Test"] = int(simulation_options[9])
 
-use_pdelosses = True
-use_boundaryc = True
-use_initialco = True
-coll_velocity = True
-coll_pressure = True
-
-uniform_mesh = True
- 
-collocation_noise = True
-boundary_noise    = True
-noise_factor_col = 0.05 if collocation_noise else 0
-noise_factor_bnd = 0.05 if boundary_noise else 0
+use_pdelosses = True if n_pts["PDE"]  else False
+use_boundaryc = True if n_pts["BC"]   else False
+use_initialco = True if n_pts["IC"]   else False
+coll_velocity = True if n_pts["Vel"]  else False
+coll_pressure = True if n_pts["Pres"] else False
 
 # %% Setup Options --- Setting Physical Parameters
 
@@ -87,6 +87,7 @@ n1, n2 = 100, 100
 n = (n1+1)*(n2+1)
 
 # Uniform Mesh
+uniform_mesh = True
 x_vec = np.linspace(Le_x, Ue_x, n1+1) if uniform_mesh else np.random.uniform(Le_x, Ue_x, n1+1)
 y_vec = np.linspace(Le_y, Ue_y, n2+1) if uniform_mesh else np.random.uniform(Le_y, Ue_y, n2+1)
 
