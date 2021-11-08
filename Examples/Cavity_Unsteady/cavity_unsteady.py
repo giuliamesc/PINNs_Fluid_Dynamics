@@ -223,9 +223,9 @@ model = tf.keras.Sequential([
 
 LMS = ns.LossMeanSquares
 
-PDE_losses = [LMS('PDE_MASS', lambda: PDE_MASS(), weight = 1e0),
-              LMS('PDE_MOMU', lambda: PDE_MOM(0), weight = 1e-1),
-              LMS('PDE_MOMV', lambda: PDE_MOM(1), weight = 1e-1)]
+PDE_losses = [LMS('PDE_MASS', lambda: PDE_MASS(), weight = 1e1),
+              LMS('PDE_MOMU', lambda: PDE_MOM(0), weight = 1e0),
+              LMS('PDE_MOMV', lambda: PDE_MOM(1), weight = 1e0)]
 BCD_losses = [LMS('BCD_u_x0', lambda: BC_D( "SX", 0), weight = 1e0),
               LMS('BCD_v_x0', lambda: BC_D( "SX", 1), weight = 1e0),
               LMS('BCD_u_x1', lambda: BC_D( "DX", 0), weight = 1e0),
