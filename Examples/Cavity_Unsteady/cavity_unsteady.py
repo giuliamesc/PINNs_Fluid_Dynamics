@@ -40,7 +40,7 @@ with open(options_file_path) as options_file:
     simulation_options = options_file.readlines()[0:-1:2]
 
 epochs = int(simulation_options[1])
-noise_factor_col = float(simulation_options[2])
+noise_factor_fit = float(simulation_options[2])
 noise_factor_bnd = float(simulation_options[3])
 
 n_pts = {}
@@ -51,11 +51,11 @@ n_pts["Vel"]  = int(simulation_options[7])
 n_pts["Pres"] = int(simulation_options[8])
 n_pts["Test"] = int(simulation_options[9])
 
-use_pdelosses = True if n_pts["PDE"]  else False
-use_boundaryc = True if n_pts["BC"]   else False
-use_initialco = True if n_pts["IC"]   else False
-coll_velocity = True if n_pts["Vel"]  else False
-coll_pressure = True if n_pts["Pres"] else False
+use_collloss = True if n_pts["PDE"]  else False
+use_boundary = True if n_pts["BC"]   else False
+use_initialc = True if n_pts["IC"]   else False
+fit_velocity = True if n_pts["Vel"]  else False
+fit_pressure = True if n_pts["Pres"] else False
 
 # %% Setup Options --- Setting Physical Parameters
 
@@ -160,9 +160,9 @@ for key, _ in bnd_val[0].items():
     bnd_val[1][key] += generate_noise(n_pts["BC"], noise_factor_bnd)
 
 
-u_ex_noise = tf.gather(u_ex_norm,idx_set["Vel"]) + generate_noise(n_pts[ "Vel"], noise_factor_col)
-v_ex_noise = tf.gather(v_ex_norm,idx_set["Vel"]) + generate_noise(n_pts[ "Vel"], noise_factor_col)
-p_ex_noise = tf.gather(p_ex_norm,idx_set["Vel"]) + generate_noise(n_pts["Pres"], noise_factor_col)
+u_ex_noise = tf.gather(u_ex_norm,idx_set["Vel"]) + generate_noise(n_pts[ "Vel"], noise_factor_fit)
+v_ex_noise = tf.gather(v_ex_norm,idx_set["Vel"]) + generate_noise(n_pts[ "Vel"], noise_factor_fit)
+p_ex_noise = tf.gather(p_ex_norm,idx_set["Vel"]) + generate_noise(n_pts["Pres"], noise_factor_fit)
 sol_noise  = [u_ex_noise , v_ex_noise, p_ex_noise]
 
 # %% Loss Building --- Differential Losses
@@ -209,8 +209,8 @@ def dir_loss(points, component, rhs):
 
 BC_D = lambda edge, component:   dir_loss(bnd_pts[edge], component, bnd_val[component][edge])
 IN_C = lambda component:         dir_loss(bnd_pts["IC"], component, tf.zeros(shape = [n_pts["IC"]], dtype = np.double))
-col_velocity = lambda component: dir_loss(tf.gather(dom_grid,idx_set["Vel" ]), component, sol_noise[component])
-col_pressure = lambda:           dir_loss(tf.gather(dom_grid,idx_set["Pres"]), 2, sol_noise[2])
+fit_velocity = lambda component: dir_loss(tf.gather(dom_grid,idx_set["Vel" ]), component, sol_noise[component])
+fit_pressure = lambda:           dir_loss(tf.gather(dom_grid,idx_set["Pres"]), 2, sol_noise[2])
 exact_value  = lambda component: dir_loss(tf.gather(dom_grid,idx_set["Test"]), component, tf.gather(sol_norm[component],idx_set["Test"]))
 
 # %% Model's Setup --- Model Creation
@@ -238,20 +238,20 @@ BCD_losses = [LMS('BCD_u_x0', lambda: BC_D( "SX", 0), weight = 1e0),
 IN_losses = [LMS('IC_u', lambda: IN_C(0), weight = 1e0),
              LMS('IC_v', lambda: IN_C(1), weight = 1e0),
              LMS('IC_p', lambda: IN_C(2), weight = 1e0)]
-COL_V_Loss = [LMS('COL_u', lambda: col_velocity(0), weight = 1e0),
-              LMS('COL_v', lambda: col_velocity(1), weight = 1e0)]
-COL_P_Loss = [LMS('COL_p', lambda: col_pressure(), weight = 1e0)]
+FIT_V_Loss = [LMS('Fit_u', lambda: fit_velocity(0), weight = 1e0),
+              LMS('Fit_v', lambda: fit_velocity(1), weight = 1e0)]
+FIT_P_Loss = [LMS('Fit_p', lambda: fit_pressure(), weight = 1e0)]
 
 losses = []
-if use_pdelosses: losses += PDE_losses
-if use_boundaryc: losses += BCD_losses
-if use_initialco: losses += IN_losses
-if coll_velocity: losses += COL_V_Loss
-if coll_pressure: losses += COL_P_Loss
+if use_collloss: losses += PDE_losses
+if use_boundary: losses += BCD_losses
+if use_initialc: losses += IN_losses
+if fit_velocity: losses += FIT_V_Loss
+if fit_pressure: losses += FIT_P_Loss
 
-loss_test = [LMS('u_fit', lambda: exact_value(0)),
-             LMS('v_fit', lambda: exact_value(1)),
-             LMS('p_fit', lambda: exact_value(2))]
+loss_test = [LMS('u_test', lambda: exact_value(0)),
+             LMS('v_test', lambda: exact_value(1)),
+             LMS('p_test', lambda: exact_value(2))]
 
 # %% Model's Setup --- Training Section
 
@@ -365,10 +365,10 @@ recap_info.append("Training Epochs -> {} epochs".format(epochs))
 recap_info.append("Pyhsical PDE Losses  -> {} points".format(n_pts["PDE"]))
 recap_info.append("Boundary Conditions  -> {} points".format(n_pts["BC"]))
 recap_info.append("Initial  Conditions  -> {} points".format(n_pts["IC"]))
-recap_info.append("Collocation Velocity -> {} points".format(n_pts["Vel"]  if coll_velocity else 0))
-recap_info.append("Collocation Pressure -> {} points".format(n_pts["Pres"] if coll_pressure else 0))
+recap_info.append("Fitting Velocity  -> {} points".format(n_pts["Vel"]  if fit_velocity else 0))
+recap_info.append("Fitting Pressure  -> {} points".format(n_pts["Pres"] if fit_pressure else 0))
 recap_info.append("Noise on Boundary -> {} times a gaussian N(0,1)".format(noise_factor_bnd))
-recap_info.append("Noise on Domain   -> {} times a gaussian N(0,1)".format(noise_factor_col))
+recap_info.append("Noise on Domain   -> {} times a gaussian N(0,1)".format(noise_factor_fit))
  
 
 recap_file_path = os.path.join(os.path.join(cwd, saving_folder),recap_file_name)
