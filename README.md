@@ -1,9 +1,7 @@
 # NAPDE_PINNs_FluidDynamics
 
 ## To do list:
-- Get input parameters from a file (do also the .gitignore)
-- Refactor the code for the time-independent case (cavity)
-- Then, modify Poiseuille and Colliding
+- Refactor the code for Poiseuille and Colliding
 - Generate plots with many epochs (until plateau of losses)
 - Implementation of PRESS_0
 - Begin report (PoliMi template article, single column)
@@ -13,4 +11,3 @@
 - Restyle of losses plot (as for June presentation)
 - Take the same collocation points of initial time for the unsteady case
 - Different type of sampling
-
