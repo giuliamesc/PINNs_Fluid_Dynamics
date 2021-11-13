@@ -215,14 +215,13 @@ exact_value  = lambda component: dir_loss(tf.gather(dom_grid,idx_set["Test"]), c
 
 # %% Model's Setup --- Model Creation
 
+LMS = ns.LossMeanSquares
 model = tf.keras.Sequential([
     tf.keras.layers.Dense(32, input_shape=(dim,), activation=tf.nn.tanh),
     tf.keras.layers.Dense(32, activation=tf.nn.tanh),
     tf.keras.layers.Dense(32, activation=tf.nn.tanh),
     tf.keras.layers.Dense(3)
 ])
-
-LMS = ns.LossMeanSquares
 
 PDE_losses = [LMS('PDE_MASS', lambda: PDE_MASS(), weight = 1e1),
               LMS('PDE_MOMU', lambda: PDE_MOM(0), weight = 1e0),
@@ -255,7 +254,7 @@ loss_test = [LMS('u_test', lambda: exact_value(0)),
 
 # %% Model's Setup --- Training Section
 
-loss_image_file = os.path.join(cwd, "{}//Loss_Trend.png".format(saving_folder))
+loss_image_file = os.path.join(cwd, "{}//Loss_Trend_Full.png".format(saving_folder))
 history_file    = os.path.join(cwd, "{}//History_Loss.json".format(saving_folder))
 
 pb = ns.OptimizationProblem(model.variables, losses, loss_test, callbacks=[])
@@ -357,6 +356,36 @@ for i,t in enumerate(time_steps):
     saving_file = os.path.join(cwd, "{}//Graphic_{}_of_{}.jpg".format(saving_folder, i+1, n_time_stamp+1))
     plt.savefig(saving_file)
     
+# %% Image Process --- Loss Trend Graphs
+
+from matplotlib.cm import get_cmap
+cmap = get_cmap("Set1")
+
+def plot_loss(history, ax, style, color, label, first_key, second_key):
+    values_tot = [history[first_key][key]["weight"] * np.array(history[first_key][key]["log"]) for key in second_key]
+    value_tot = sum(values_tot) / len(second_key)
+    ax.plot(history['log']['iter'], value_tot, style, color = color, linewidth = 1.5, label = label)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+history = ns.utils.load_json(history_file)
+fig, ax = plt.subplots(figsize = (10, 8))
+ax.loglog(history['log']['iter'], history['log']['loss_global'], 'k-', linewidth = 2)
+
+plot_loss(history, ax, '-' , cmap(0), 'Equations_Residuals', "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"],)
+plot_loss(history, ax, '-' , cmap(1), 'Boundary_Cond_U',     "losses", ["BCD_u_x0", "BCD_u_x1", "BCD_u_y0", "BCD_u_y1", "IC_u"],)
+plot_loss(history, ax, '-' , cmap(2), 'Boundary_Cond_V',     "losses", ["BCD_v_x0", "BCD_v_x1", "BCD_v_y0", "BCD_v_y1", "IC_v"])
+plot_loss(history, ax, '-' , cmap(3), 'Fitting Loss',        "losses", ["Fit_u", "Fit_v", "Fit_p"])
+plot_loss(history, ax, '--', cmap(4), 'Test_Loss',           "losses_test", ["u_test", "v_test", "p_test"])
+plt.axvline(100, 0, 1, c = cmap(5))    
+
+ax.legend(loc = 1, fontsize = 15)
+ax.grid()
+ax.set_xlabel('# Iterations', fontsize = 15)
+ax.set_ylabel('Losses Values', fontsize = 15)
+
+plt.savefig(os.path.join(cwd, "{}//Loss_Trend_Reduced.png".format(saving_folder)))
+
 # %% Final Recap
 
 recap_info = []
