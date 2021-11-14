@@ -149,7 +149,7 @@ for key, _ in bnd_val[0].items():
 
 u_ex_noise = tf.gather(u_ex_norm,idx_set["Vel"]) + generate_noise(n_pts[ "Vel"], noise_factor_fit)
 v_ex_noise = tf.gather(v_ex_norm,idx_set["Vel"]) + generate_noise(n_pts[ "Vel"], noise_factor_fit)
-p_ex_noise = tf.gather(p_ex_norm,idx_set["Vel"]) + generate_noise(n_pts["Pres"], noise_factor_fit)
+p_ex_noise = tf.gather(p_ex_norm,idx_set["Pres"]) + generate_noise(n_pts["Pres"], noise_factor_fit)
 sol_noise  = [u_ex_noise , v_ex_noise, p_ex_noise]
 
 # %% Loss Building --- Differential Losses
@@ -245,6 +245,11 @@ pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False,
                                                  filename_history=history_file))
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
 ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
+
+if save_results:
+    with open('{}//Model.json'.format(saving_folder), "w") as json_file:
+        json_file.write(model.to_json())
+    model.save_weights('{}//Weights.h5'.format(saving_folder))
 
 # %% Image Process --- Solutions on Regular Grid
 
