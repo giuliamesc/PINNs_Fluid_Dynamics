@@ -91,11 +91,8 @@ uniform_mesh = True
 x_vec = np.linspace(Le_x, Ue_x, n1+1) if uniform_mesh else np.random.uniform(Le_x, Ue_x, n1+1)
 y_vec = np.linspace(Le_y, Ue_y, n2+1) if uniform_mesh else np.random.uniform(Le_y, Ue_y, n2+1)
 
-if dim == 3:
-    time_vec = np.arange(0.0, T, step = dt)
-    dom_grid = tf.convert_to_tensor([(t,i,j) for t in time_vec for j in y_vec for i in x_vec])
-elif dim == 2:
-    dom_grid = tf.convert_to_tensor([(i,j) for j in y_vec for i in x_vec])
+time_vec = np.arange(0.0, T, step = dt)
+dom_grid = tf.convert_to_tensor([(t,i,j) for t in time_vec for j in y_vec for i in x_vec])
 
 key_subset = ("PDE", "Vel", "Pres", "Test")
 val_subset = np.split(np.random.permutation(np.array([i for i in range(dom_grid.shape[0])])), 
@@ -264,6 +261,11 @@ pb.callbacks.append(ns.utils.HistoryPlotCallback(frequency=100, gui=False,
 ns.minimize(pb, 'keras', tf.keras.optimizers.Adam(learning_rate=1e-2), num_epochs = 100)
 ns.minimize(pb, 'scipy', 'BFGS', num_epochs = epochs)
 
+if save_results:
+    with open('{}//Model.json'.format(saving_folder), "w") as json_file:
+        json_file.write(model.to_json())
+    model.save_weights('{}//Weights.h5'.format(saving_folder))
+
 # %% Image Process --- Solutions on Regular Grid
 
 import pandas as pd
@@ -272,9 +274,7 @@ import pandas as pd
 grid_x, grid_y = np.meshgrid(np.linspace(Le_x, Ue_x , 100), np.linspace(Le_y, Ue_y, 100))
 n_time_stamp = 4
 time_steps = np.linspace(0, T, n_time_stamp+1)
-p_ex_list = []
-u_ex_list = []
-v_ex_list = []
+p_ex_list, u_ex_list, v_ex_list = [], [], []
 
 # Numerical Solutions
 regular_mesh_file = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_r.csv'
@@ -361,23 +361,28 @@ for i,t in enumerate(time_steps):
 from matplotlib.cm import get_cmap
 cmap = get_cmap("Set1")
 
-def plot_loss(history, ax, style, color, label, first_key, second_key):
+def plot_loss(history, ax, style, color, lwdt, label, first_key, second_key):
     values_tot = [history[first_key][key]["weight"] * np.array(history[first_key][key]["log"]) for key in second_key]
     value_tot = sum(values_tot) / len(second_key)
-    ax.plot(history['log']['iter'], value_tot, style, color = color, linewidth = 1.5, label = label)
-    ax.set_xscale('log')
+    hist_mod = [x for x in history['log']['iter']]
+    ax.plot(hist_mod, value_tot, style, color = color, linewidth = lwdt, label = label)
+    ax.set_xscale('symlog', linthresh = 100, linscale = 1)
     ax.set_yscale('log')
 
 history = ns.utils.load_json(history_file)
 fig, ax = plt.subplots(figsize = (10, 8))
 ax.loglog(history['log']['iter'], history['log']['loss_global'], 'k-', linewidth = 2)
 
-plot_loss(history, ax, '-' , cmap(0), 'Equations_Residuals', "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"],)
-plot_loss(history, ax, '-' , cmap(1), 'Boundary_Cond_U',     "losses", ["BCD_u_x0", "BCD_u_x1", "BCD_u_y0", "BCD_u_y1", "IC_u"],)
-plot_loss(history, ax, '-' , cmap(2), 'Boundary_Cond_V',     "losses", ["BCD_v_x0", "BCD_v_x1", "BCD_v_y0", "BCD_v_y1", "IC_v"])
-plot_loss(history, ax, '-' , cmap(3), 'Fitting Loss',        "losses", ["Fit_u", "Fit_v", "Fit_p"])
-plot_loss(history, ax, '--', cmap(4), 'Test_Loss',           "losses_test", ["u_test", "v_test", "p_test"])
-plt.axvline(100, 0, 1, c = cmap(5))    
+plot_loss(history, ax, '--', cmap(0), 3.0, 'Test_Loss',           "losses_test", ["u_test", "v_test", "p_test"])
+plot_loss(history, ax, '-' , cmap(2), 1.5, 'Equations_Residuals', "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"],)
+plot_loss(history, ax, '-' , cmap(1), 1.5, 'Boundary_Cond_U',     "losses", ["BCD_u_x0", "BCD_u_x1", "BCD_u_y0", "BCD_u_y1", "IC_u"],)
+plot_loss(history, ax, '-' , cmap(3), 1.5, 'Boundary_Cond_V',     "losses", ["BCD_v_x0", "BCD_v_x1", "BCD_v_y0", "BCD_v_y1", "IC_v"])
+plot_loss(history, ax, '-' , cmap(4), 1.5, 'Fitting Loss',        "losses", ["Fit_u", "Fit_v", "Fit_p"])
+plt.axvline(  0, 0, 1, c = cmap(5))
+plt.axvline(100, 0, 1, c = cmap(5))
+
+plt.text(  1, 0.3, "keras_Adam", bbox={'facecolor':'lightgray','alpha':0.7,'edgecolor':'black','pad':3}, rotation = 90)
+plt.text(101, 0.3, "scipy_BFGS", bbox={'facecolor':'lightgray','alpha':0.7,'edgecolor':'black','pad':3}, rotation = 90)
 
 ax.legend(loc = 1, fontsize = 15)
 ax.grid()
