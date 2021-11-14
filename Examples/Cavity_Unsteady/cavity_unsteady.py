@@ -366,7 +366,7 @@ def plot_loss(history, ax, style, color, lwdt, label, first_key, second_key):
     value_tot = sum(values_tot) / len(second_key)
     hist_mod = [x for x in history['log']['iter']]
     ax.plot(hist_mod, value_tot, style, color = color, linewidth = lwdt, label = label)
-    ax.set_xscale('symlog', linthreshx = 100, linscalex = 1)
+    ax.set_xscale('symlog', linthresh = 100, linscale = 1)
     ax.set_yscale('log')
 
 history = ns.utils.load_json(history_file)
