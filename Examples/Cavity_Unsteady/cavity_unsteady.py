@@ -159,7 +159,7 @@ for key, _ in bnd_val[0].items():
 
 u_ex_noise = tf.gather(u_ex_norm,idx_set["Vel"]) + generate_noise(n_pts[ "Vel"], noise_factor_fit)
 v_ex_noise = tf.gather(v_ex_norm,idx_set["Vel"]) + generate_noise(n_pts[ "Vel"], noise_factor_fit)
-p_ex_noise = tf.gather(p_ex_norm,idx_set["Vel"]) + generate_noise(n_pts["Pres"], noise_factor_fit)
+p_ex_noise = tf.gather(p_ex_norm,idx_set["Pres"]) + generate_noise(n_pts["Pres"], noise_factor_fit)
 sol_noise  = [u_ex_noise , v_ex_noise, p_ex_noise]
 
 # %% Loss Building --- Differential Losses
