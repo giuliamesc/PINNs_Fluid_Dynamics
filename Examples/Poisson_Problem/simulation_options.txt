@@ -1,0 +1,14 @@
+### Put this file into the folder of the given problem ###
+TRAINING EPOCHS
+5000
+NOISE ON BOUNDARY
+0
+NOISE ON COLLOCATION
+0
+POINTS PDE
+1000
+POINTS BOUNDARY CONDITIONS
+100
+POINT TEST EVALUATION
+1000
+### End of the File ###
