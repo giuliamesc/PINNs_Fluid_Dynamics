@@ -1,0 +1,9 @@
+Problem Name    -> Colliding_Flow
+Training Epochs -> 5000 epochs
+Pyhsical PDE Losses  -> 1000 points
+Boundary Conditions  -> 100 points
+Initial  Conditions  -> 100 points
+Fitting Velocity  -> 50 points
+Fitting Pressure  -> 1 points
+Noise on Boundary -> 0.0 times a gaussian N(0,1)
+Noise on Domain   -> 0.0 times a gaussian N(0,1)

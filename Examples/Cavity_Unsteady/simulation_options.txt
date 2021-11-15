@@ -1,6 +1,6 @@
 ### Put this file into the folder of the given problem ###
 TRAINING EPOCHS
-500
+10000
 NOISE ON BOUNDARY
 0.05
 NOISE ON COLLOCATION
