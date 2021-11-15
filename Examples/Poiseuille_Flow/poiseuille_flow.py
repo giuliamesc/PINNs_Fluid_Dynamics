@@ -84,7 +84,7 @@ bnd_val = [{},{}]
 bnd_val[0]["BOT"] = 0
 bnd_val[0] ["DX"] = P_end
 bnd_val[0]["TOP"] = 0
-bnd_val[0] ["SX"] = Ub
+bnd_val[0] ["SX"] = None
 bnd_val[1]["BOT"] = 0
 bnd_val[1] ["DX"] = 0
 bnd_val[1]["TOP"] = 0
@@ -113,6 +113,8 @@ idx_set = {k : v for (k,v) in zip(key_subset,val_subset)}
 p_f   = lambda x: ((P_end-P_str)/L * x[:,0] + P_str)
 u_f   = lambda x: - P_x * x[:,1] * (2 - x[:,1] / delta) * delta / (2 * mu)
 v_f   = lambda x: 0*x[:,0]
+
+bnd_val[0] ["SX"] = u_f
 
 u_ex = tf.convert_to_tensor(u_f(dom_grid))
 v_ex = tf.convert_to_tensor(v_f(dom_grid))
@@ -203,7 +205,8 @@ def neu_loss(x, k, j, rhs = 0):
         uk_j = gradient(tape, uk, x)[:,j]
         
         norm_const = 1/max(norm_pre,norm_vel)
-    return norm_const * (uk_j * mu - p  - rhs)
+        
+    return norm_const * (uk_j * mu - p*(j==k) - rhs)
 
     
 # %% Loss Building --- Dirichlet Style Losses
@@ -273,26 +276,20 @@ if save_results:
 
 # %% Image Process --- Solutions on Regular Grid
 
-import pandas as pd
-
 # Regular Grid
 grid_x, grid_y = np.meshgrid(np.linspace(Le_x, Ue_x , 100), np.linspace(Le_y, Ue_y, 100))
-
-# Numerical Solutions
-regular_mesh_file = r'../../DataGeneration/data/SteadyCase/navier-stokes_cavity_steady_r.csv'
-dfr = pd.read_csv (regular_mesh_file)
-
-p_temp = pd.DataFrame(dfr, columns = ['p']).to_numpy().reshape(grid_x.shape)
-p_ex_list = p_temp-np.mean(p_temp)
-u_ex_list = pd.DataFrame(dfr, columns = ['ux']).to_numpy().reshape(grid_x.shape)
-v_ex_list = pd.DataFrame(dfr, columns = ['uy']).to_numpy().reshape(grid_x.shape)
-
-# %% Image Process --- PINN Solutions 
 
 grid_x_flatten = np.reshape(grid_x, (-1,))
 grid_y_flatten = np.reshape(grid_y, (-1,)) 
 
-u_list, v_list, p_list = [], [], []
+grid = tf.stack([grid_x_flatten, grid_y_flatten], axis = -1)
+
+# Numerical Solutions
+p_ex_list = p_f(grid).numpy().reshape(grid_x.shape)
+u_ex_list = u_f(grid).numpy().reshape(grid_x.shape)
+v_ex_list = v_f(grid).numpy().reshape(grid_x.shape)
+
+# %% Image Process --- PINN Solutions 
 
 grid = tf.stack([grid_x_flatten, grid_y_flatten], axis = -1)
 u_list = model(grid)[:,0].numpy().reshape(grid_x.shape) * norm_vel
@@ -321,6 +318,8 @@ num_levels = 11
 level_u = np.linspace(approx_scale(lev_u_min, False), approx_scale(lev_u_max, True), num_levels)
 level_v = np.linspace(approx_scale(lev_v_min, False), approx_scale(lev_v_max, True), num_levels)
 level_p = np.linspace(approx_scale(lev_p_min, False), approx_scale(lev_p_max, True), num_levels)
+
+if level_u[-1]/level_v[-1] > 1e3: level_v *= 1e3
 
 # %% Image Process --- Countour Plots
 
