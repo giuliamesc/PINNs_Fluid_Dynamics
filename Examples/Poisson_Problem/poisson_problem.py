@@ -142,8 +142,9 @@ def PDE():
     x = tf.gather(dom_grid, idx_set["PDE"])
     with ns.GradientTape(persistent = True) as tape:
         tape.watch(x)
-        u = model(x)
-    return - laplacian(tape, u, x, dim) - f_norm
+        u = model(x)[:,None]
+        lap = laplacian(tape, u, x, dim)
+    return - lap - f_norm
 
 def neu_loss(x, k, j, rhs = 0):
     with ns.GradientTape(persistent = True) as tape:
