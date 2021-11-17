@@ -1,5 +1,14 @@
 # NAPDE_PINNs_FluidDynamics
 
+## Report Index
+### Introduction
+### An Overview on Neural Networks
+### Physics Informed Neural Networks
+### First Test Cases
+#### prova
+
+
+
 ## Last Improvements
 - Reduced Loss Graph
 - Now input can be given by a .txt
@@ -10,7 +19,6 @@
 ## To do list:
 - Generate plots with many epochs (until plateau of losses)
 - Implementation of PRESS_0
-- Continue report (PoliMi template article, single column)
 
 ## Further ideas
 - Prediction of the exact value of the BC plateau, noisy case
