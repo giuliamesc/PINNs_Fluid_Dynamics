@@ -5,12 +5,12 @@
 - Now input can be given by a .txt
 - New way of test savings
 - Full code refactoring
+- Refactor the code for Poiseuille and Colliding
 
 ## To do list:
-- Refactor the code for Poiseuille and Colliding
 - Generate plots with many epochs (until plateau of losses)
 - Implementation of PRESS_0
-- Begin report (PoliMi template article, single column)
+- Continue report (PoliMi template article, single column)
 
 ## Further ideas
 - Prediction of the exact value of the BC plateau, noisy case
