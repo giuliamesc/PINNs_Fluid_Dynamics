@@ -144,7 +144,7 @@ def PDE():
         tape.watch(x)
         u = model(x)[:,None]
         lap = laplacian(tape, u, x, dim)
-    return - lap - f_norm
+    return  - lap - f_norm
 
 def neu_loss(x, k, j, rhs = 0):
     with ns.GradientTape(persistent = True) as tape:
@@ -179,7 +179,7 @@ model = tf.keras.Sequential([
     tf.keras.layers.Dense(1)
 ])
 
-PDE_losses = [LMS('PDE', lambda: PDE(), weight = 1e0)]
+PDE_losses = [LMS('PDE', lambda: PDE(), weight = 1e1)]
 
 BCD_losses = [LMS('BCD_u_y0', lambda: BC_D("BOT", 0), weight = 1e0),              
               LMS('BCD_u_y1', lambda: BC_D("TOP", 0), weight = 1e0)]
@@ -222,16 +222,12 @@ grid_y_flatten = np.reshape(grid_y, (-1,))
 grid = tf.stack([grid_x_flatten, grid_y_flatten], axis = -1)
 
 # Numerical Solutions
-p_ex_list = p_f(grid).numpy().reshape(grid_x.shape)
-u_ex_list = u_f(grid).numpy().reshape(grid_x.shape)
-v_ex_list = v_f(grid).numpy().reshape(grid_x.shape)
+u_ex_list = u_f(grid).reshape(grid_x.shape)
 
 # %% Image Process --- PINN Solutions 
 
 grid = tf.stack([grid_x_flatten, grid_y_flatten], axis = -1)
 u_list = model(grid)[:,0].numpy().reshape(grid_x.shape) * norm_vel
-v_list = model(grid)[:,1].numpy().reshape(grid_x.shape) * norm_vel
-p_list = model(grid)[:,2].numpy().reshape(grid_x.shape) * norm_pre
 
 # %% Image Process --- Contour Levels
 
@@ -242,8 +238,6 @@ def find_lims(exact_sol, pinn_sol, take_max):
     return levels
 
 lev_u_min, lev_u_max = (find_lims(u_ex_list, u_list, False), find_lims(u_ex_list, u_list, True))
-lev_v_min, lev_v_max = (find_lims(v_ex_list, v_list, False), find_lims(v_ex_list, v_list, True))
-lev_p_min, lev_p_max = (find_lims(p_ex_list, p_list, False), find_lims(p_ex_list, p_list, True))
 
 def approx_scale(x, up):
     factor = np.floor(np.log10(abs(x)))-1
@@ -253,10 +247,6 @@ def approx_scale(x, up):
 
 num_levels = 11 
 level_u = np.linspace(approx_scale(lev_u_min, False), approx_scale(lev_u_max, True), num_levels)
-level_v = np.linspace(approx_scale(lev_v_min, False), approx_scale(lev_v_max, True), num_levels)
-level_p = np.linspace(approx_scale(lev_p_min, False), approx_scale(lev_p_max, True), num_levels)
-
-if level_u[-1]/level_v[-1] > 1e3: level_v *= 1e3
 
 # %% Image Process --- Countour Plots
 
@@ -271,16 +261,12 @@ def plot_subfig(fig, ax, function, levels, title):
 graph_title = "Solutions of the {} problem".format(problem_name)
     
 # Figure Creation
-fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,8))
+fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(10,5))
 fig.suptitle(graph_title , fontsize=18, y = 0.97, x = 0.50)
 plt.subplots_adjust(top = 1.4, right = 1)
     
 plot_subfig(fig, ax1, u_ex_list, level_u, 'Numerical u-velocity')
 plot_subfig(fig, ax2, u_list, level_u, 'PINNS u-velocity')
-plot_subfig(fig, ax3, v_ex_list, level_v, 'Numerical v-velocity')
-plot_subfig(fig, ax4, v_list, level_v, 'PINNS v-velocity')
-plot_subfig(fig, ax5, p_ex_list, level_p, 'Numerical Pressure')
-plot_subfig(fig, ax6, p_list, level_p, 'PINNS Pressure')
     
 plt.tight_layout()
 saving_file = os.path.join(cwd, "{}//Graphic.jpg".format(saving_folder))
@@ -303,11 +289,9 @@ history = ns.utils.load_json(history_file)
 fig, ax = plt.subplots(figsize = (10, 8))
 ax.loglog(history['log']['iter'], history['log']['loss_global'], 'k-', linewidth = 2)
 
-plot_loss(history, ax, '--', cmap(0), 3.0, 'Test_Loss',           "losses_test", ["u_test", "v_test", "p_test"])
-plot_loss(history, ax, '-' , cmap(2), 1.5, 'Equations_Residuals', "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"])
-plot_loss(history, ax, '-' , cmap(1), 1.5, 'Boundary_Cond_U',     "losses", ["BCD_u_x0", "BCN_u_x1", "BCD_u_y0", "BCD_u_y1"])
-plot_loss(history, ax, '-' , cmap(3), 1.5, 'Boundary_Cond_V',     "losses", ["BCD_v_x0", "BCN_v_x1", "BCD_v_y0", "BCD_v_y1"])
-plot_loss(history, ax, '-' , cmap(4), 1.5, 'Fitting Loss',        "losses", ["Fit_u", "Fit_v", "Fit_p"])
+plot_loss(history, ax, '--', cmap(0), 3.0, 'Test_Loss',           "losses_test", ["u_test"])
+plot_loss(history, ax, '-' , cmap(2), 1.5, 'Equations_Residuals', "losses", ["PDE"])
+plot_loss(history, ax, '-' , cmap(1), 1.5, 'Boundary_Cond_U',     "losses", ["BCN_u_x0", "BCN_u_x1", "BCD_u_y0", "BCD_u_y1"])
 plt.axvline(  0, 0, 1, c = cmap(5))
 plt.axvline(100, 0, 1, c = cmap(5))
 
@@ -328,11 +312,6 @@ recap_info.append("Problem Name    -> {}".format(problem_name))
 recap_info.append("Training Epochs -> {} epochs".format(epochs))
 recap_info.append("Pyhsical PDE Losses  -> {} points".format(n_pts["PDE"]))
 recap_info.append("Boundary Conditions  -> {} points".format(n_pts["BC"]))
-recap_info.append("Initial  Conditions  -> {} points".format(n_pts["IC"]))
-recap_info.append("Fitting Velocity  -> {} points".format(n_pts["Vel"]  if fit_velocity else 0))
-recap_info.append("Fitting Pressure  -> {} points".format(n_pts["Pres"] if fit_pressure else 0))
-recap_info.append("Noise on Boundary -> {} times a gaussian N(0,1)".format(noise_factor_bnd))
-recap_info.append("Noise on Domain   -> {} times a gaussian N(0,1)".format(noise_factor_fit))
 
 recap_file_path = os.path.join(os.path.join(cwd, saving_folder),recap_file_name)
 recap_file = open(recap_file_path, "w")                                                                          
