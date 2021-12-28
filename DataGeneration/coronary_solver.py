@@ -44,10 +44,18 @@ def noslip_boundary(x,on_boundary):
 
 # u(y) = y * (H-y) / H^2
 
-inflow_function = df.Expression(("cos_theta*(1/rad*(x[0]+4*x[1]))*(H-1/rad*(x[0]+4*x[1]))/(H*H)", 
-                                 "sin_theta*(1/rad*(x[0]+4*x[1]))*(H-1/rad*(x[0]+4*x[1]))/(H*H)",
-                                 "0"), cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)), 
-                                       rad = np.sqrt(17), H = np.sqrt(0.4**2+0.1**2), degree=2)
+
+
+# inflow_function = df.Expression(("cos_theta*(1/rad*(x[0]+4*x[1])-0.8)*(H-1/rad*(x[0]+4*x[1])+0.8)/(H*H)", 
+#                                   "sin_theta*(1/rad*(x[0]+4*x[1])-0.8)*(H-1/rad*(x[0]+4*x[1])+0.8)/(H*H)",
+#                                   "0"), cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)), 
+#                                         rad = np.sqrt(17), H = np.sqrt(0.4**2+0.1**2), degree=2)
+
+
+inflow_function= df.Expression(('cos_theta*(-0.0816 * x[0]*x[0] + 0.6528 * x[0]*x[1] - 1.3056 * x[1]*x[1] - 0.0737428849542 * x[0] - 0.6773557212386 * x[1] - 0.3807406159268)',
+                               'sin_theta*(-0.0816 * x[0]*x[0] + 0.6528 * x[0]*x[1] - 1.3056 * x[1]*x[1] - 0.0737428849542 * x[0] - 0.6773557212386 * x[1] - 0.3807406159268)',
+                               '0'),
+                                cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)), degree = 2)
 
 bcs.append(df.DirichletBC(W.sub(0), df.Constant((0, 0, 0)), noslip_boundary))
 bcs.append(df.DirichletBC(W.sub(0), inflow_function       , inflow_boundary))
@@ -66,7 +74,7 @@ def save_output(w, t, it):
     (u, p) = w.split()
     u.rename('u', 'u')
     p.rename('p', 'p')
-    xdmf_file = df.XDMFFile('data/UnsteadyCase/' + formulation + '_' + testcase + '_unsteady_%05d.xdmf' % it)
+    xdmf_file = df.XDMFFile('data/Coronary/' + formulation + '_' + testcase + '_unsteady_%05d.xdmf' % it)
     xdmf_file.parameters['flush_output'] = True
     xdmf_file.parameters['functions_share_mesh'] = True
     xdmf_file.parameters['rewrite_function_mesh'] = False
