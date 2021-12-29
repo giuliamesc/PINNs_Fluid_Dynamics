@@ -8,6 +8,7 @@ nu = 1e0
 T  = 1e-2
 U  = 1
 dt = 1e-4
+tol = 1e-14
 
 formulation = 'navier-stokes_SI'
 testcase = 'coronary'
@@ -19,13 +20,30 @@ msh = meshio.read("coroParam.msh")
 meshio.write("coroParam.xml",msh)
 mesh = df.Mesh("coroParam.xml")
 
+boundary_mesh = df.BoundaryMesh(mesh, "exterior", True)
+boundary_points = boundary_mesh.coordinates()
+
+# ids: 0 for no_slip boundary
+#      1 for inflow boundary
+#      2 for outflow1 boundary
+#      3 for outflow2 boundary
+
+def get_id(x,y,tol):
+    if (np.abs(y+4*x+6.4)<tol) : return 1
+    if (np.abs(y+2*x-4.8)<tol) : return 2
+    if (np.abs(x-1.2)<tol) and (y<0) : return 3
+    else : return 0
+
+ids = [get_id(x[0],x[1],tol) for x in boundary_points[:,0:2]]
+ids = np.expand_dims(np.array(ids), axis = 1)
+np.save("data/Coronary/bpoints.npy",np.hstack((boundary_points,ids)))
+
 V = df.VectorElement("CG", mesh.ufl_cell(), 2)
 Q = df.FiniteElement("CG", mesh.ufl_cell(), 1)
 W_elem = df.MixedElement([V,Q])
 W = df.FunctionSpace(mesh,W_elem)
 
 bcs = list()
-tol = 1e-14
 
 def inflow_boundary(x,on_boundary):
     return on_boundary and (np.abs(x[1]+4*x[0]+6.4)<tol)
@@ -42,20 +60,13 @@ def outflow_boundary(x,on_boundary):
 def noslip_boundary(x,on_boundary):
     return on_boundary and not(inflow_boundary(x, on_boundary)) and not(outflow_boundary(x, on_boundary))
 
-# u(y) = y * (H-y) / H^2
+# u(s) = s * (1-s)
+# s = std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H
 
-
-
-# inflow_function = df.Expression(("cos_theta*(1/rad*(x[0]+4*x[1])-0.8)*(H-1/rad*(x[0]+4*x[1])+0.8)/(H*H)", 
-#                                   "sin_theta*(1/rad*(x[0]+4*x[1])-0.8)*(H-1/rad*(x[0]+4*x[1])+0.8)/(H*H)",
-#                                   "0"), cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)), 
-#                                         rad = np.sqrt(17), H = np.sqrt(0.4**2+0.1**2), degree=2)
-
-
-inflow_function= df.Expression(('cos_theta*(-0.0816 * x[0]*x[0] + 0.6528 * x[0]*x[1] - 1.3056 * x[1]*x[1] - 0.0737428849542 * x[0] - 0.6773557212386 * x[1] - 0.3807406159268)',
-                               'sin_theta*(-0.0816 * x[0]*x[0] + 0.6528 * x[0]*x[1] - 1.3056 * x[1]*x[1] - 0.0737428849542 * x[0] - 0.6773557212386 * x[1] - 0.3807406159268)',
-                               '0'),
-                                cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)), degree = 2)
+inflow_function = df.Expression(("cos_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)", 
+                                  "sin_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)",
+                                  "0"), cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)), 
+                                        x0 = -1.4, y0 = -0.8, H = np.sqrt(0.4**2+0.1**2), degree=2)
 
 bcs.append(df.DirichletBC(W.sub(0), df.Constant((0, 0, 0)), noslip_boundary))
 bcs.append(df.DirichletBC(W.sub(0), inflow_function       , inflow_boundary))
@@ -123,4 +134,4 @@ for i in range(1, len(times)):
 
     save_output(w, t, i)
 
-print('Done')
+print('-----------Done------------')
