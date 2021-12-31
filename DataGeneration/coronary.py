@@ -3,7 +3,7 @@ import numpy as np
 
 #%% Options
 
-time_step = 1e-3
+time_step = 1e-4
 dt = df.Constant(time_step)
 nu = df.Constant(1e0)
 T  = 1e-2
@@ -38,7 +38,8 @@ class Outflow2(df.SubDomain):
 times = np.arange(0.0, T, step = time_step)
 
 import meshio
-meshio.write("coroParam.xml", meshio.read("coroParam.msh"))
+msh = meshio.read("coroParam.msh")
+meshio.write("coroParam.xml", msh)
 mesh = df.Mesh("coroParam.xml")
 
 sub_domains = df.MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
@@ -49,8 +50,8 @@ Inflow().mark(sub_domains, 1)
 Outflow1().mark(sub_domains, 2)
 Outflow2().mark(sub_domains, 3)
 
-file = df.File("subdomains.xml")
-file << sub_domains
+#file = df.File("subdomains.xml")
+#file << sub_domains
 
 #%% Spaces and Functions
 
@@ -75,8 +76,6 @@ inflow_function = df.Expression(("cos_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[
 bcs = list()
 bcs.append(df.DirichletBC(W.sub(0), df.Constant((0, 0, 0)), sub_domains, 0))
 bcs.append(df.DirichletBC(W.sub(0), inflow_function       , sub_domains, 1))
-bcs.append(df.DirichletBC(W.sub(1), df.Constant((0)), sub_domains, 2))
-bcs.append(df.DirichletBC(W.sub(1), df.Constant((0)), sub_domains, 3))
 ds = df.Measure('ds', domain=mesh, subdomain_data=sub_domains)
 
 
@@ -95,6 +94,8 @@ def save_output(w, t, it):
 
 
 #%% Solver
+n = df.FacetNormal(mesh)
+#n = df.project(n,V)
 
 save_output(w, 0, 0)
 for i in range(1, len(times)):
@@ -105,16 +106,16 @@ for i in range(1, len(times)):
 
     print('Navier-Stokes (semi-implicit)...')
     a = (
-          df.inner(u, v)/dt
+        df.inner(u, v)/dt
         + nu*df.inner(df.grad(u), df.grad(v))
         + df.inner(df.grad(u)*u_old, v)
         - df.div(v)*p
         + q*df.div(u)
-        )*df.dx
+        )*df.dx + (
+        df.dot(p/nu,df.inner(n,v)))*df.ds(2) + (df.dot(p/nu,df.inner(n,v)))*df.ds(3)
     rhs = (
-        df.inner(u_old, v)/dt
-        + df.inner(f, v)
-        )*df.dx
+          df.inner(u_old, v)/dt
+        + df.inner(f, v))*df.dx
     df.solve(a == rhs, w, bcs)
 
     save_output(w, t, i)
