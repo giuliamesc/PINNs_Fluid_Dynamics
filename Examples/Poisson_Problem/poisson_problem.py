@@ -245,6 +245,7 @@ def approx_scale(x, up):
     else : x = np.floor(x/(np.power(10,factor))/5)
     return x*5*np.power(10,factor)
 
+
 num_levels = 11 
 level_u = np.linspace(approx_scale(lev_u_min, False), approx_scale(lev_u_max, True), num_levels)
 

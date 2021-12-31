@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import dolfin as df
 import numpy as np
 
@@ -63,9 +62,9 @@ def noslip_boundary(x,on_boundary):
 # u(s) = s * (1-s)
 # s = std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H
 
-inflow_function = df.Expression(("cos_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)", 
+inflow_function = df.Expression(("cos_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)",
                                   "sin_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)",
-                                  "0"), cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)), 
+                                  "0"), cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)),
                                         x0 = -1.4, y0 = -0.8, H = np.sqrt(0.4**2+0.1**2), degree=2)
 
 bcs.append(df.DirichletBC(W.sub(0), df.Constant((0, 0, 0)), noslip_boundary))
@@ -116,7 +115,7 @@ for i in range(1, len(times)):
                 + df.inner(f, v)
             )*df.dx
         df.solve(a == rhs, w, bcs)
-        
+
     elif formulation == 'navier-stokes_SI':
         print('Navier-Stokes (semi-implicit)...')
         a = (
