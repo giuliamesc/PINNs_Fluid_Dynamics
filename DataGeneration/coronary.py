@@ -5,14 +5,18 @@ import numpy as np
 
 time_step = 1e-4
 dt = df.Constant(time_step)
-nu = df.Constant(1e0)
+mu  = 1e-2   # kg/m*s
+rho = 1.06e3 # kg/m^3
+nu = df.Constant(1e4*mu/rho) # cm^2/s
+U  = 20 # cm/s
+H = np.sqrt(0.4**2+0.1**2) #cm
 T  = 1e-2
-U  = 1
 toll = 1e-14
 
 formulation = 'navier-stokes_SI'
 testcase = 'coronary'
 
+print("Reynolds -> %1.4f" %(U*(H/2)/nu))
 
 #%% Creating SubDomains
 
@@ -68,10 +72,10 @@ w_old = df.Function(W)
 
 # u(s) = s * (1-s)
 # s = sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H
-inflow_function = df.Expression(("cos_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)",
-                                 "sin_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)",
+inflow_function = df.Expression(("U*cos_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)",
+                                 "U*sin_theta*(std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)*(1-std::sqrt((x[0]-x0)*(x[0]-x0) + (x[1]-y0)*(x[1]-y0)) / H)",
                                  "0"), cos_theta = np.cos(np.arctan(1/4)), sin_theta = np.sin(np.arctan(1/4)),
-                                       x0 = -1.4, y0 = -0.8, H = np.sqrt(0.4**2+0.1**2), degree=2)
+                                       x0 = -1.4, y0 = -0.8, H = H, U = U, degree=2)
 
 bcs = list()
 bcs.append(df.DirichletBC(W.sub(0), df.Constant((0, 0, 0)), sub_domains, 0))
@@ -95,8 +99,6 @@ def save_output(w, t, it):
 
 #%% Solver
 n = df.FacetNormal(mesh)
-#n = df.project(n,V)
-
 save_output(w, 0, 0)
 for i in range(1, len(times)):
     t = times[i]
