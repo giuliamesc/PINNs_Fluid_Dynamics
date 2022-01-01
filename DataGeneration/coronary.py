@@ -3,7 +3,7 @@ import numpy as np
 
 #%% Options
 
-time_step = 1e-4
+time_step = 1e-4 # MODIFY THIS
 dt = df.Constant(time_step)
 mu  = 1e-2   # kg/m*s
 rho = 1.06e3 # kg/m^3
@@ -27,15 +27,15 @@ class Noslip(df.SubDomain):
 # Sub domain for inflow (left)
 class Inflow(df.SubDomain):
     def inside(self, x, on_boundary):
-        return np.abs(x[1]+4*x[0]+6.4) < toll and on_boundary
+        return np.logical_and(np.abs(x[1]+4*x[0]+6.4) < toll, on_boundary)
 # Sub domain for outflow_1 (upper_right)
 class Outflow1(df.SubDomain):
     def inside(self, x, on_boundary):
-        return np.abs(x[1]+2*x[0]-4.8) < toll and on_boundary
+        return np.logical_and(np.abs(x[1]+2*x[0]-4.8) < toll, on_boundary)
 # Sub domain for outflow_2 (lower_right)
 class Outflow2(df.SubDomain):
     def inside(self, x, on_boundary):
-        return np.abs(x[0]-1.2) < toll and x[1] < 0 and on_boundary
+        return  np.logical_and(np.abs(x[0]-1.2) < toll,  np.logical_and(x[1] < 0, on_boundary))
 
 #%% Creating Mesh
 
@@ -49,13 +49,20 @@ mesh = df.Mesh("coroParam.xml")
 sub_domains = df.MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
 sub_domains.set_all(4) # default value is interior
 
-Noslip().mark(sub_domains, 0)
-Inflow().mark(sub_domains, 1)
-Outflow1().mark(sub_domains, 2)
-Outflow2().mark(sub_domains, 3)
+bnd_mesh = df.BoundaryMesh(mesh, "exterior", True)
+bnd_pts = np.transpose(bnd_mesh.coordinates())
 
-#file = df.File("subdomains.xml")
-#file << sub_domains
+Noslip().mark(sub_domains, 0)
+inflow   = Inflow()
+outflow1 = Outflow1()
+outflow2 = Outflow2()
+inflow.mark(sub_domains, 1)
+outflow1.mark(sub_domains, 2)
+outflow2.mark(sub_domains, 3)
+
+marks = 1*inflow.inside(bnd_pts,True) + 2*outflow1.inside(bnd_pts,True) + 3*outflow2.inside(bnd_pts,True)
+marked_pts = np.hstack((np.transpose(bnd_pts),np.expand_dims(marks, axis = 1)))
+np.save("data/Coronary/bpoints.npy", marked_pts)
 
 #%% Spaces and Functions
 
