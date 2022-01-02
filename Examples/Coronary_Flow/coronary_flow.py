@@ -88,8 +88,14 @@ mesh_h5 = h5py.File(f'{folder_h5}/navier-stokes_SI_coronary_unsteady_00000.h5', 
 x_vec = mesh_h5[:,0]
 y_vec = mesh_h5[:,1]
 
+N = len(x_vec)
+np.random.seed(21) # set seed for reproducibility
+rand_subset = np.random.randint(0,N,size=100)
+x_sample = x_vec[rand_subset]
+y_sample = y_vec[rand_subset]
+
 time_vec = np.arange(0.0, T, step = dt)
-dom_grid = tf.convert_to_tensor([(t,i,j) for t in time_vec for j in y_vec for i in x_vec])
+dom_grid = tf.convert_to_tensor([(t,i,j) for t in time_vec for j in y_sample for i in x_sample])
 
 key_subset = ("PDE", "Vel", "Pres", "Test", "IC")
 val_subset = np.split(np.random.permutation(np.array([i for i in range(dom_grid.shape[0])])), 
@@ -132,8 +138,6 @@ bnd_pts['INF'] = tf.convert_to_tensor(boundary_array[np.where(boundary_array[:,3
 bnd_pts['OUT1'] = tf.convert_to_tensor(boundary_array[np.where(boundary_array[:,3]==2)])
 bnd_pts['OUT2'] = tf.convert_to_tensor(boundary_array[np.where(boundary_array[:,3]==3)])
 
-# Initial Conditions -> to be extracted like other points!
-# bnd_pts["IC"] = starting_sampling([0, Le_x, Le_y], [0, Ue_x, Ue_y])
 
 zero_base = tf.zeros(shape = n_bpts, dtype = np.double)
 
@@ -227,17 +231,17 @@ model = tf.keras.Sequential([
 PDE_losses = [LMS('PDE_MASS', lambda: PDE_MASS(), weight = 1e1),
               LMS('PDE_MOMU', lambda: PDE_MOM(0), weight = 1e0),
               LMS('PDE_MOMV', lambda: PDE_MOM(1), weight = 1e0)]
-BCD_losses = [LMS('BCD_u_x0', lambda: BC_D( "SX", 0), weight = 1e0),
-              LMS('BCD_v_x0', lambda: BC_D( "SX", 1), weight = 1e0),
-              LMS('BCD_u_x1', lambda: BC_D( "DX", 0), weight = 1e0),
-              LMS('BCD_v_x1', lambda: BC_D( "DX", 1), weight = 1e0),
-              LMS('BCD_u_y0', lambda: BC_D("BOT", 0), weight = 1e0),
-              LMS('BCD_v_y0', lambda: BC_D("BOT", 1), weight = 1e0),
-              LMS('BCD_u_y1', lambda: BC_D("TOP", 0), weight = 1e0),
-              LMS('BCD_v_y1', lambda: BC_D("TOP", 1), weight = 1e0),]
-IN_losses = [LMS('IC_u', lambda: IN_C(0), weight = 1e0),
-             LMS('IC_v', lambda: IN_C(1), weight = 1e0),
-             LMS('IC_p', lambda: IN_C(2), weight = 1e0)]
+# BCD_losses = [LMS('BCD_u_x0', lambda: BC_D( "SX", 0), weight = 1e0),
+#               LMS('BCD_v_x0', lambda: BC_D( "SX", 1), weight = 1e0),
+#               LMS('BCD_u_x1', lambda: BC_D( "DX", 0), weight = 1e0),
+#               LMS('BCD_v_x1', lambda: BC_D( "DX", 1), weight = 1e0),
+#               LMS('BCD_u_y0', lambda: BC_D("BOT", 0), weight = 1e0),
+#               LMS('BCD_v_y0', lambda: BC_D("BOT", 1), weight = 1e0),
+#               LMS('BCD_u_y1', lambda: BC_D("TOP", 0), weight = 1e0),
+#               LMS('BCD_v_y1', lambda: BC_D("TOP", 1), weight = 1e0),]
+# IN_losses = [LMS('IC_u', lambda: IN_C(0), weight = 1e0),
+#              LMS('IC_v', lambda: IN_C(1), weight = 1e0),
+#              LMS('IC_p', lambda: IN_C(2), weight = 1e0)]
 FIT_V_Loss = [LMS('Fit_u', lambda: fit_velocity(0), weight = 1e0),
               LMS('Fit_v', lambda: fit_velocity(1), weight = 1e0)]
 FIT_P_Loss = [LMS('Fit_p', lambda: fit_pressure(), weight = 1e0)]
