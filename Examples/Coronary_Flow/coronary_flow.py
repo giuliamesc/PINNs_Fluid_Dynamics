@@ -219,16 +219,18 @@ def dir_loss(points, component, rhs):
 def neu_loss(edge,k,rhs):
     x = bnd_pts[edge]
     if edge == 'OUT1':
-        n = tf.constant([2,1])
+        n = tf.constant([2,1], dtype='double')
+        n= tf.reshape(n,[2,1])
     else : 
-        n = tf.constant([1,0])
+        n = tf.constant([1,0], dtype='double')
+        n= tf.reshape(n,[2,1])
     with ns.GradientTape(persistent=True) as tape:
         tape.watch(x)
     u_vect = model(x)
     u_eq = u_vect[:,k] * norm_vel
     p_eq = u_vect[:,2] * norm_pre
     grad = gradient(tape, u_eq, x)[:,0:2]
-    return ni * tf.tensordot(grad,n) - p_eq * n[k] - rhs
+    return ni * tf.linalg.matmul(grad,n) - p_eq * n[k] - rhs
 
 BC_D = lambda edge, component:   dir_loss(bnd_pts[edge], component, bnd_val[component][edge])
 BC_N = lambda edge, component:   neu_loss(edge, component, bnd_val[component][edge])
@@ -247,17 +249,17 @@ model = tf.keras.Sequential([
     tf.keras.layers.Dense(3)
 ])
 
-PDE_losses = [LMS('PDE_MASS', lambda: PDE_MASS(), weight = 1e3),
-              LMS('PDE_MOMU', lambda: PDE_MOM(0), weight = 1e2),
-              LMS('PDE_MOMV', lambda: PDE_MOM(1), weight = 1e2)]
+PDE_losses = [LMS('PDE_MASS', lambda: PDE_MASS(), weight = 1e5),
+              LMS('PDE_MOMU', lambda: PDE_MOM(0), weight = 1e4),
+              LMS('PDE_MOMV', lambda: PDE_MOM(1), weight = 1e4)]
 BCD_losses = [LMS('BCD_u_NS', lambda: BC_D( "NOSL", 0), weight = 1e0),
               LMS('BCD_v_NS', lambda: BC_D( "NOSL", 1), weight = 1e0),
               LMS('BCD_u_IN', lambda: BC_D( "INF", 0), weight = 1e0),
-              LMS('BCD_v_IN', lambda: BC_D( "INF", 1), weight = 1e0)]
-               # LMS('BCN_u_OUT1', lambda: BC_N("OUT1", 0), weight = 1e0),
-               # LMS('BCN_v_OUT1', lambda: BC_N("OUT1", 1), weight = 1e0),
-               # LMS('BCN_u_OUT2', lambda: BC_N("OUT2", 0), weight = 1e0),
-               # LMS('BCN_v_OUT2', lambda: BC_N("OUT2", 1), weight = 1e0)]
+              LMS('BCD_v_IN', lambda: BC_D( "INF", 1), weight = 1e0),
+              LMS('BCN_u_OUT1', lambda: BC_N("OUT1", 0), weight = 1e-3),
+              LMS('BCN_v_OUT1', lambda: BC_N("OUT1", 1), weight = 1e-3),
+              LMS('BCN_u_OUT2', lambda: BC_N("OUT2", 0), weight = 1e-3),
+              LMS('BCN_v_OUT2', lambda: BC_N("OUT2", 1), weight = 1e-3)]
 IN_losses = [LMS('IC_u', lambda: IN_C(0), weight = 1e0),
               LMS('IC_v', lambda: IN_C(1), weight = 1e0),
               LMS('IC_p', lambda: IN_C(2), weight = 1e0)]
@@ -293,96 +295,104 @@ if save_results:
         json_file.write(model.to_json())
     model.save_weights('{}//Weights.h5'.format(saving_folder))
 
-# %% Image Process --- Solutions on Regular Grid
+# # %% Image Process --- Solutions on Regular Grid
 
-import pandas as pd
+# import pandas as pd
 
-# Regular Grid
-grid_x, grid_y = np.meshgrid(np.linspace(Le_x, Ue_x , 100), np.linspace(Le_y, Ue_y, 100))
-n_time_stamp = 4
-time_steps = np.linspace(0, T, n_time_stamp+1)
-p_ex_list, u_ex_list, v_ex_list = [], [], []
+# # Regular Grid
+# grid_x, grid_y = np.meshgrid(np.linspace(Le_x, Ue_x , 100), np.linspace(Le_y, Ue_y, 100))
+# n_time_stamp = 4
+# time_steps = np.linspace(0, T, n_time_stamp+1)
+# p_ex_list, u_ex_list, v_ex_list = [], [], []
 
-# Numerical Solutions
-regular_mesh_file = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_r.csv'
-dfr = pd.read_csv (regular_mesh_file)
+# # Numerical Solutions
+# regular_mesh_file = r'../../DataGeneration/data/UnsteadyCase/navier-stokes_SI_cavity_unsteady_r.csv'
+# dfr = pd.read_csv (regular_mesh_file)
 
-for t in time_steps:
-    if t == T: t = T - dt
-    temp_df = dfr.loc[(dfr["t"] > t-dt/4) & (dfr["t"] < t+dt/4)]
-    p_temp = pd.DataFrame(temp_df, columns = ['p']).to_numpy().reshape(grid_x.shape)
-    p_ex_list.append(p_temp-np.mean(p_temp))
-    u_ex_list.append(pd.DataFrame(temp_df, columns = ['ux']).to_numpy().reshape(grid_x.shape))
-    v_ex_list.append(pd.DataFrame(temp_df, columns = ['uy']).to_numpy().reshape(grid_x.shape))
+# for t in time_steps:
+#     if t == T: t = T - dt
+#     temp_df = dfr.loc[(dfr["t"] > t-dt/4) & (dfr["t"] < t+dt/4)]
+#     p_temp = pd.DataFrame(temp_df, columns = ['p']).to_numpy().reshape(grid_x.shape)
+#     p_ex_list.append(p_temp-np.mean(p_temp))
+#     u_ex_list.append(pd.DataFrame(temp_df, columns = ['ux']).to_numpy().reshape(grid_x.shape))
+#     v_ex_list.append(pd.DataFrame(temp_df, columns = ['uy']).to_numpy().reshape(grid_x.shape))
 
 # %% Image Process --- PINN Solutions 
 
-grid_x_flatten = np.reshape(grid_x, (-1,))
-grid_y_flatten = np.reshape(grid_y, (-1,))
-grid_t0 = np.zeros(grid_x_flatten.shape) 
+# grid_x_flatten = np.reshape(grid_x, (-1,))
+# grid_y_flatten = np.reshape(grid_y, (-1,))
+# grid_t0 = np.zeros(grid_x_flatten.shape) 
 
-u_list, v_list, p_list = [], [], []
+# u_list, v_list, p_list = [], [], []
 
-for t in time_steps:
-    if t == T: t = T - dt
-    grid_t = grid_t0 + t
-    grid = tf.stack([grid_t, grid_x_flatten, grid_y_flatten], axis = -1)
-    u_list.append(model(grid)[:,0].numpy().reshape(grid_x.shape) * norm_vel)
-    v_list.append(model(grid)[:,1].numpy().reshape(grid_x.shape) * norm_vel)
-    p_list.append(model(grid)[:,2].numpy().reshape(grid_x.shape) * norm_pre)
+# for t in time_steps:
+#     if t == T: t = T - dt
+#     grid_t = grid_t0 + t
+#     grid = tf.stack([grid_t, grid_x_flatten, grid_y_flatten], axis = -1)
+#     u_list.append(model(grid)[:,0].numpy().reshape(grid_x.shape) * norm_vel)
+#     v_list.append(model(grid)[:,1].numpy().reshape(grid_x.shape) * norm_vel)
+#     p_list.append(model(grid)[:,2].numpy().reshape(grid_x.shape) * norm_pre)
 
 # %% Image Process --- Contour Levels
 
-def find_lims(exact_sol, pinn_sol, take_max):
-    pfunc = max if take_max else min
-    nfunc = np.max if take_max else np.min
-    levels = [pfunc(nfunc(exact_sol[i]),nfunc(pinn_sol[i])) for i in range(n_time_stamp + 1)]
-    return pfunc(levels)
+# def find_lims(exact_sol, pinn_sol, take_max):
+#     pfunc = max if take_max else min
+#     nfunc = np.max if take_max else np.min
+#     levels = [pfunc(nfunc(exact_sol[i]),nfunc(pinn_sol[i])) for i in range(n_time_stamp + 1)]
+#     return pfunc(levels)
 
-lev_u_min, lev_u_max = (find_lims(u_ex_list, u_list, False), find_lims(u_ex_list, u_list, True))
-lev_v_min, lev_v_max = (find_lims(v_ex_list, v_list, False), find_lims(v_ex_list, v_list, True))
-lev_p_min, lev_p_max = (find_lims(p_ex_list, p_list, False), find_lims(p_ex_list, p_list, True))
+# lev_u_min, lev_u_max = (find_lims(u_ex_list, u_list, False), find_lims(u_ex_list, u_list, True))
+# lev_v_min, lev_v_max = (find_lims(v_ex_list, v_list, False), find_lims(v_ex_list, v_list, True))
+# lev_p_min, lev_p_max = (find_lims(p_ex_list, p_list, False), find_lims(p_ex_list, p_list, True))
 
-def approx_scale(x, up):
-    factor = np.floor(np.log10(abs(x)))-1
-    if up: x =  np.ceil(x/(np.power(10,factor))/5)
-    else : x = np.floor(x/(np.power(10,factor))/5)
-    return x*5*np.power(10,factor)
+# def approx_scale(x, up):
+#     factor = np.floor(np.log10(abs(x)))-1
+#     if up: x =  np.ceil(x/(np.power(10,factor))/5)
+#     else : x = np.floor(x/(np.power(10,factor))/5)
+#     return x*5*np.power(10,factor)
 
-num_levels = 11 
-level_u = np.linspace(approx_scale(lev_u_min, False), approx_scale(lev_u_max, True), num_levels)
-level_v = np.linspace(approx_scale(lev_v_min, False), approx_scale(lev_v_max, True), num_levels)
-level_p = np.linspace(approx_scale(lev_p_min, False), approx_scale(lev_p_max, True), num_levels)
+# num_levels = 11 
+# level_u = np.linspace(approx_scale(lev_u_min, False), approx_scale(lev_u_max, True), num_levels)
+# level_v = np.linspace(approx_scale(lev_v_min, False), approx_scale(lev_v_max, True), num_levels)
+# level_p = np.linspace(approx_scale(lev_p_min, False), approx_scale(lev_p_max, True), num_levels)
 
 # %% Image Process --- Countour Plots
 
 import matplotlib.pyplot as plt
 
-def plot_subfig(fig, ax, function, levels, title):
-    ax.title.set_text(title)
-    cs = ax.contourf(grid_x, grid_y, function, levels = levels)
-    fig.colorbar(cs, ax=ax)
+# def plot_subfig(fig, ax, function, levels, title):
+#     ax.title.set_text(title)
+#     cs = ax.contourf(grid_x, grid_y, function, levels = levels)
+#     fig.colorbar(cs, ax=ax)
 
-for i,t in enumerate(time_steps):
-    graph_title = "Solutions when t = {0:.4f}".format(t)
-    graph_title += ", time step #{}/{}".format(int(i*(n_times/n_time_stamp)), n_times)
+# for i,t in enumerate(time_steps):
+#     graph_title = "Solutions when t = {0:.4f}".format(t)
+#     graph_title += ", time step #{}/{}".format(int(i*(n_times/n_time_stamp)), n_times)
     
-    # Figure Creation
-    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,8))
-    fig.suptitle(graph_title , fontsize=18, y = 0.97, x = 0.50)
-    plt.subplots_adjust(top = 1.4, right = 1)
+#     # Figure Creation
+#     fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12,8))
+#     fig.suptitle(graph_title , fontsize=18, y = 0.97, x = 0.50)
+#     plt.subplots_adjust(top = 1.4, right = 1)
     
-    plot_subfig(fig, ax1, u_ex_list[i], level_u, 'Numerical u-velocity')
-    plot_subfig(fig, ax2, u_list[i], level_u, 'PINNS u-velocity')
-    plot_subfig(fig, ax3, v_ex_list[i], level_v, 'Numerical v-velocity')
-    plot_subfig(fig, ax4, v_list[i], level_v, 'PINNS v-velocity')
-    plot_subfig(fig, ax5, p_ex_list[i], level_p, 'Numerical Pressure')
-    plot_subfig(fig, ax6, p_list[i], level_p, 'PINNS Pressure')
+#     plot_subfig(fig, ax1, u_ex_list[i], level_u, 'Numerical u-velocity')
+#     plot_subfig(fig, ax2, u_list[i], level_u, 'PINNS u-velocity')
+#     plot_subfig(fig, ax3, v_ex_list[i], level_v, 'Numerical v-velocity')
+#     plot_subfig(fig, ax4, v_list[i], level_v, 'PINNS v-velocity')
+#     plot_subfig(fig, ax5, p_ex_list[i], level_p, 'Numerical Pressure')
+#     plot_subfig(fig, ax6, p_list[i], level_p, 'PINNS Pressure')
     
-    plt.tight_layout()
-    saving_file = os.path.join(cwd, "{}//Graphic_{}_of_{}.jpg".format(saving_folder, i+1, n_time_stamp+1))
-    plt.savefig(saving_file)
-    
+#     plt.tight_layout()
+#     saving_file = os.path.join(cwd, "{}//Graphic_{}_of_{}.jpg".format(saving_folder, i+1, n_time_stamp+1))
+#     plt.savefig(saving_file)
+
+
+os.mkdir('PINN_sol')
+for i in range(int(T/dt)):
+    my_data = model(dom_grid[i:i+N])
+    with h5py.File('PINN_sol/sol_pinn_%s.h5' % i,'w') as hf:
+        hf.create_dataset("u_pinn",  data=my_data[:,0])
+        hf.create_dataset("v_pinn",  data=my_data[:,1])
+        hf.create_dataset("p_pinn",  data=my_data[:,2])
 # %% Image Process --- Loss Trend Graphs
 
 from matplotlib.cm import get_cmap
