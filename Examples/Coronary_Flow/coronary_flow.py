@@ -386,7 +386,7 @@ import matplotlib.pyplot as plt
 #     plt.savefig(saving_file)
 
 
-os.mkdir('PINN_sol')
+# os.mkdir('PINN_sol')
 for i in range(int(T/dt)):
     my_data = model(dom_grid[i:i+N])
     with h5py.File('PINN_sol/sol_pinn_%s.h5' % i,'w') as hf:
