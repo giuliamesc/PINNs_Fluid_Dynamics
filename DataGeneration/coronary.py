@@ -13,7 +13,8 @@ H = np.sqrt(0.4**2+0.1**2) #cm
 T  = 1e-2
 toll = 1e-14
 
-formulation = 'navier-stokes_SI'
+# formulation = 'navier-stokes_SI'
+formulation = 'steady'
 testcase = 'coronary'
 
 print("Reynolds -> %1.4f" %(U*(H/2)/nu))
@@ -106,27 +107,48 @@ def save_output(w, t, it):
 
 #%% Solver
 n = df.FacetNormal(mesh)
-save_output(w, 0, 0)
-for i in range(1, len(times)):
-    t = times[i]
-    print('*** solving time t = %1.6f ***' % t)
-    w_old.assign(w)
-    (u_old, p_old) = w_old.split()
-
-    print('Navier-Stokes (semi-implicit)...')
+if formulation == 'navier-stokes_SI':
+    save_output(w, 0, 0)
+    for i in range(1, len(times)):
+        t = times[i]
+        print('*** solving time t = %1.6f ***' % t)
+        w_old.assign(w)
+        (u_old, p_old) = w_old.split()
+    
+        print('Navier-Stokes (semi-implicit)...')
+        a = (
+            df.inner(u, v)/dt
+            + nu*df.inner(df.grad(u), df.grad(v))
+            + df.inner(df.grad(u)*u_old, v)
+            - df.div(v)*p
+            + q*df.div(u)
+            )*df.dx + (
+            df.dot(p/nu,df.inner(n,v)))*df.ds(2) + (df.dot(p/nu,df.inner(n,v)))*df.ds(3)
+        rhs = (
+              df.inner(u_old, v)/dt
+            + df.inner(f, v))*df.dx
+        df.solve(a == rhs, w, bcs)
+    
+        save_output(w, t, i)
+        
+if formulation == 'steady':
+    print('Stokes...')
     a = (
-        df.inner(u, v)/dt
-        + nu*df.inner(df.grad(u), df.grad(v))
-        + df.inner(df.grad(u)*u_old, v)
-        - df.div(v)*p
-        + q*df.div(u)
-        )*df.dx + (
-        df.dot(p/nu,df.inner(n,v)))*df.ds(2) + (df.dot(p/nu,df.inner(n,v)))*df.ds(3)
-    rhs = (
-          df.inner(u_old, v)/dt
-        + df.inner(f, v))*df.dx
+            df.Constant(nu)*df.inner(df.grad(u), df.grad(v))
+            - df.div(v)*p
+            + q*df.div(u)
+        )*df.dx
+    rhs = df.inner(f, v)*df.dx
     df.solve(a == rhs, w, bcs)
-
-    save_output(w, t, i)
+    output_file = 'data/SteadyCase/' + formulation + '_' + testcase + '_steady'
+    (u, p) = w.split()
+    u.rename('u', 'u')
+    p.rename('p', 'p')
+    xdmf_file = df.XDMFFile(output_file + '.xdmf')
+    xdmf_file.parameters['flush_output'] = True
+    xdmf_file.parameters['functions_share_mesh'] = True
+    xdmf_file.parameters['rewrite_function_mesh'] = False
+    xdmf_file.write(u, 0)
+    xdmf_file.write(p, 0)
 
 print('-----------Done------------')
