@@ -132,14 +132,18 @@ if formulation == 'navier-stokes_SI':
         save_output(w, t, i)
         
 if formulation == 'steady':
-    print('Stokes...')
-    a = (
+    print('Navier Stokes...')
+    NS = (
             df.Constant(nu)*df.inner(df.grad(u), df.grad(v))
-            - df.div(v)*p
-            + q*df.div(u)
+            + df.inner(df.grad(u)*u, v)
+            - df.div(v)*p + q*df.div(u)
+            - df.inner(f, v)
         )*df.dx
-    rhs = df.inner(f, v)*df.dx
-    df.solve(a == rhs, w, bcs)
+    residual = df.action(NS, w)
+    jacobian = df.derivative(residual,  w)
+    problem  = df.NonlinearVariationalProblem(residual, w, bcs, jacobian)
+    solver   = df.NonlinearVariationalSolver(problem)
+    solver.solve()
     output_file = 'data/SteadyCase/' + formulation + '_' + testcase + '_steady'
     (u, p) = w.split()
     u.rename('u', 'u')
