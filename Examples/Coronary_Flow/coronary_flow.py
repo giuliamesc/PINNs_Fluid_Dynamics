@@ -390,9 +390,10 @@ import matplotlib.pyplot as plt
 for i in range(int(T/dt)):
     my_data = model(dom_grid[i:i+N])
     with h5py.File('PINN_sol/sol_pinn_%s.h5' % i,'w') as hf:
-        hf.create_dataset("u_pinn",  data=my_data[:,0])
-        hf.create_dataset("v_pinn",  data=my_data[:,1])
-        hf.create_dataset("p_pinn",  data=my_data[:,2])
+        hf.create_dataset("u_pinn",  data=my_data[:,0]*norm_vel)
+        hf.create_dataset("v_pinn",  data=my_data[:,1]*norm_vel)
+        hf.create_dataset("p_pinn",  data=my_data[:,2]*norm_pre)
+        
 # %% Image Process --- Loss Trend Graphs
 
 from matplotlib.cm import get_cmap
