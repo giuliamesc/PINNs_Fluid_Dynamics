@@ -10,7 +10,8 @@ This repo contains the code for the course project "Numerical Analysis for Parti
 The project proposes an approach based on Physics-Informed Neural Networks to Fluid Dynamics problems.
 
 ## Code Structure :world_map:
-- Folder `Examples`, containing the code for the solution with PINNs of all the test cases:
+- Folder `Examples`, containing the code for the solution with PINNs of all the test cases.
+In each folder, you will find a folder containing the results of the simulation presented in the report, too.
     - `Poisson_Problem`: toy problem; solution of the Poisson equation on a square with mixed boundary conditions.
     - `Poiseuille_Flow`: laminar flow in a channel.
     - `Colliding_Flows`: colliding flows in a square.
