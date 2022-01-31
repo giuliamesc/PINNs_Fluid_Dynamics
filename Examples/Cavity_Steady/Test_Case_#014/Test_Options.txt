@@ -1,0 +1,9 @@
+Problem Name    -> Cavity_Steady
+Training Epochs -> 10000 epochs
+Pyhsical PDE Losses  -> 1000 points
+Boundary Conditions  -> 1000 points
+Initial  Conditions  -> 1000 points
+Fitting Velocity  -> 500 points
+Fitting Pressure  -> 1 points
+Noise on Boundary -> 0.01 times a gaussian N(0,1)
+Noise on Domain   -> 0.01 times a gaussian N(0,1)
