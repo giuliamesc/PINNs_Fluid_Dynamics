@@ -261,7 +261,7 @@ losses = []
 if use_collloss: losses += PDE_losses
 if use_boundary: losses += BCD_losses
 if fit_velocity: losses += FIT_V_Loss
-if fit_pressure: losses += FIT_P_Loss
+# if fit_pressure: losses += FIT_P_Loss
 
 loss_test = [LMS('u_test', lambda: exact_value(0)),
              LMS('v_test', lambda: exact_value(1)),
@@ -288,9 +288,8 @@ if save_results:
 
 import matplotlib.pyplot as plt
 
-os.mkdir('PINN_steady_sol_training')
 my_data = model(dom_grid)
-with h5py.File('PINN_sol/sol_pinn.h5','w') as hf:
+with h5py.File('sol_pinn.h5','w') as hf:
     hf.create_dataset("u_pinn",  data=my_data[:,0]*norm_vel)
     hf.create_dataset("v_pinn",  data=my_data[:,1]*norm_vel)
     hf.create_dataset("p_pinn",  data=my_data[:,2]*norm_pre)
@@ -316,7 +315,7 @@ plot_loss(history, ax, '--', cmap(0), 3.0, 'Test_Loss',           "losses_test",
 plot_loss(history, ax, '-' , cmap(2), 1.5, 'Equations_Residuals', "losses", ["PDE_MASS", "PDE_MOMU", "PDE_MOMV"],)
 plot_loss(history, ax, '-' , cmap(1), 1.5, 'Boundary_Cond_U',     "losses", ["BCD_u_NS", "BCD_u_IN", "BCN_u_OUT1", "BCN_u_OUT2"],)
 plot_loss(history, ax, '-' , cmap(3), 1.5, 'Boundary_Cond_V',     "losses", ["BCD_v_NS", "BCD_v_IN", "BCN_v_OUT1", "BCN_v_OUT2"])
-plot_loss(history, ax, '-' , cmap(4), 1.5, 'Fitting Loss',        "losses", ["Fit_u", "Fit_v", "Fit_p"])
+plot_loss(history, ax, '-' , cmap(4), 1.5, 'Fitting Loss',        "losses", ["Fit_u", "Fit_v"])
 plt.axvline(  0, 0, 1, c = cmap(5))
 plt.axvline(100, 0, 1, c = cmap(5))
 
@@ -350,3 +349,36 @@ for row_string in recap_info:
     print("\t",row_string)
     recap_file.write(row_string+"\n")
 recap_file.close()
+
+# %% Save output
+
+data = h5py.File('sol_pinn.h5','r')
+u_pinn = np.array(data['u_pinn'])
+v_pinn = np.array(data['v_pinn'])
+p_pinn = np.array(data['p_pinn'])
+
+x_mesh = x_vec
+y_mesh = y_vec
+
+import matplotlib.tri as tri
+
+N = 30 # levels
+triang = tri.Triangulation(x_mesh,y_mesh)
+
+fig1, ax1 = plt.subplots()
+dom_grid = np.array([x_vec, y_vec]).transpose()
+# ax1.quiver(x_mesh,y_mesh,u_pinn)
+tcf = ax1.tricontourf(triang, u_pinn, N)
+fig1.colorbar(tcf)
+ax1.set_title('Contour plot of PINN u-velocity')
+
+fig2, ax2 = plt.subplots()
+tcf = ax2.tricontourf(triang, v_pinn, N)
+fig2.colorbar(tcf)
+ax2.set_title('Contour plot of PINN v-velocity')
+
+fig3, ax3 = plt.subplots()
+tcf = ax3.tricontourf(triang, p_pinn, N)
+fig3.colorbar(tcf)
+ax3.set_title('Contour plot of PINN pressure')
+

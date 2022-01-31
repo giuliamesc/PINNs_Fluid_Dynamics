@@ -1,0 +1,8 @@
+Problem Name    -> Coronary_Flow_Steady
+Training Epochs -> 30000 epochs
+Pyhsical PDE Losses  -> 3000 points
+Boundary Conditions  -> 800 points
+Fitting Velocity  -> 50 points
+Fitting Pressure  -> 0 points
+Noise on Boundary -> 0.01 times a gaussian N(0,1)
+Noise on Domain   -> 0.01 times a gaussian N(0,1)
