@@ -251,7 +251,7 @@ losses = []
 if use_collloss: losses += PDE_losses
 if use_boundary: losses += (BCD_losses + BCN_losses)
 if fit_velocity: losses += FIT_V_Loss
-if fit_pressure: losses += FIT_P_Loss
+# if fit_pressure: losses += FIT_P_Loss
 
 loss_test = [LMS('u_test', lambda: exact_value(0)),
              LMS('v_test', lambda: exact_value(1)),
