@@ -24,8 +24,9 @@ In each folder, you will find a folder containing the results of the simulation 
 - `Report.pdf` is the project report, including all the results. 
 
 ## Instructions :dart:
-1. Enter the folder of the test case of interest.
-2. In the `.txt` file `simulation_options.txt` indicate the number of epochs, the amount of noise, the numerosity of the training data (divided by category: *collocation*, *fitting*, *boundary*) and test data.
-3. Set `save_results = True` in the `.py` script if you wish to save the results and the loss trends in a folder automatically generated.
-4. Run the script! :rocket:
+1. Place the library `nisaba` (clone it from [here](https://gitlab.com/sci-learning/nisaba)) at the same level as this repo.
+2. Enter the folder of the test case of interest. If you want to run *Cavity* or *Coronary* Test case, you should first generate numerical data using the code in the folder `Data Generation`.
+3. In the `.txt` file `simulation_options.txt` indicate the number of epochs, the amount of noise, the numerosity of the training data (divided by category: *collocation*, *fitting*, *boundary*) and test data.
+4. Set `save_results = True` in the `.py` script if you wish to save the results and the loss trends in a folder automatically generated.
+5. Run the script! :rocket:
 
